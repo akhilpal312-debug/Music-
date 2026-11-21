@@ -118,15 +118,28 @@ def messages(release):
     return chunks
 
 
+def apk_names(version, abi):
+    """The names a release asset can carry for each ABI.
+
+    The universal APK is named for the version alone; the splits name their ABI
+    and the release build type, which is what the Gradle build produces. The
+    second name in each pair is the one an earlier release used.
+    """
+    if abi == "universal":
+        return (f"Comfort-v{version}.apk", f"Comfort-{version}.apk")
+    return (f"Comfort-{version}-{abi}-release.apk", f"Comfort-{version}-{abi}.apk")
+
+
 def apks(release):
     version = release["tag_name"].removeprefix("v")
     result = []
     for abi in ABIS:
-        name = f"square-{version}-{abi}.apk"
-        found = [a for a in release.get("assets", []) if a["name"] == name]
+        names = apk_names(version, abi)
+        found = [a for a in release.get("assets", []) if a["name"] in names]
         if len(found) != 1 or found[0].get("state") != "uploaded":
-            raise ValueError(f"Missing uploaded APK: {name}")
+            raise ValueError(f"Missing uploaded APK: {' / '.join(names)}")
         asset = found[0]
+        name = asset["name"]
         if not 0 < asset["size"] < 50_000_000:
             raise ValueError(f"APK exceeds Telegram upload limit: {name}")
         url = parse.urlparse(asset["browser_download_url"])

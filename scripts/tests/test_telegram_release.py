@@ -15,8 +15,9 @@ def release():
     return {'tag_name': 'v2.4.5', 'name': '2.4.5', 'body': '## Fixed\nConnect and local files.',
             'html_url': 'https://github.com/akhilpal312-debug/Music-/releases/tag/v2.4.5',
             'draft': False, 'published_at': '2026-10-07T10:42:26Z',
-            'assets': [{'name': f'square-2.4.5-{abi}.apk', 'state': 'uploaded', 'size': 20,
-                        'browser_download_url': f'https://github.com/akhilpal312-debug/Music-/releases/download/v2.4.5/square-2.4.5-{abi}.apk'} for abi in module.ABIS]}
+            'assets': [{'name': module.apk_names('2.4.5', abi)[0], 'state': 'uploaded', 'size': 20,
+                        'browser_download_url': 'https://github.com/akhilpal312-debug/Music-/releases/download/v2.4.5/'
+                        + module.apk_names('2.4.5', abi)[0]} for abi in module.ABIS]}
 
 
 class ReleaseTests(unittest.TestCase):
@@ -49,8 +50,15 @@ class ReleaseTests(unittest.TestCase):
     def test_all_three_apks_required(self):
         value = release()
         value['assets'].pop()
-        with self.assertRaisesRegex(ValueError, 'universal'):
+        with self.assertRaisesRegex(ValueError, 'Comfort-v2.4.5.apk'):
             module.apks(value)
+
+    def test_comfort_asset_names_are_matched(self):
+        assets = [name for abi in module.ABIS for name in module.apk_names('2.4.5', abi)]
+        self.assertIn('Comfort-v2.4.5.apk', assets)
+        self.assertIn('Comfort-2.4.5-arm64-v8a-release.apk', assets)
+        self.assertIn('Comfort-2.4.5-armeabi-v7a-release.apk', assets)
+        self.assertFalse([name for name in assets if name.startswith('square-')])
 
     def test_unexpected_download_source_rejected(self):
         value = release()
