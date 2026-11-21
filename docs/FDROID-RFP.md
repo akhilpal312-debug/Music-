@@ -1,16 +1,14 @@
-# Square — request for packaging
+# Comfort — request for packaging
 
 - Application ID: `dev.lelonio.square`
-- Source: https://github.com/Lelonio/Square
-- Releases: https://github.com/Lelonio/Square/releases
-- Issue tracker: https://github.com/Lelonio/Square/issues
+- Source: https://github.com/akhilpal312-debug/Music-
+- Releases: https://github.com/akhilpal312-debug/Music-/releases
+- Issue tracker: https://github.com/akhilpal312-debug/Music-/issues
 - License: GPL-3.0-or-later, with the lyrics view under AGPL-3.0 as documented
-  in the upstream README. Please review the combined-work licensing.
-- Donation: https://ko-fi.com/lelonio
-- Current release: 2.4.5 (versionCode 46)
+  in the repository README. Please review the combined-work licensing.
+- Current release: 0.0.1 (versionCode 70)
 
-I am the upstream author and would like Square included in F-Droid.
-Square is an Android music client for Spotify Premium and YouTube Music with
+Comfort is an Android music client for Spotify Premium and YouTube Music with
 Liquid Glass UI, synced lyrics, Spotify Connect, local files, audio effects
 and a sleep timer. It does not require the official Spotify application for
 native playback. Android 8.0 or later is required.
@@ -41,7 +39,7 @@ toolchain must be pinned and the Maven/JitPack dependency tree audited.
 The project also has a GitHub updater whose behavior and signing compatibility
 need review for an F-Droid build.
 
-Fastlane English listing metadata has been prepared upstream. Existing app
+Fastlane English listing metadata has been prepared. Existing app
 screenshots contain third-party album artwork; they should be omitted from
 the listing unless redistribution rights are confirmed or replaced with
 cleared demonstration artwork.

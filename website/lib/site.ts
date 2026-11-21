@@ -13,7 +13,6 @@ export const site = {
   },
   repo: "https://github.com/akhilpal312-debug/Music-",
   issues: "https://github.com/akhilpal312-debug/Music-/issues",
-  upstream: "https://github.com/Lelonio/Square",
   license: "GPL-3.0",
   apk: {
     versionName: "0.0.1",

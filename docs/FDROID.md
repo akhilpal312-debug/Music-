@@ -1,7 +1,7 @@
 # F-Droid submission preparation
 
-Status: upstream listing metadata published; request for packaging submitted:
-https://gitlab.com/fdroid/rfp/-/work_items/4524
+Status: listing metadata prepared; request for packaging draft in
+`docs/FDROID-RFP.md`. Not submitted for this fork.
 Inclusion and the buildserver recipe are not yet validated. No playback
 feature has been removed.
 
@@ -13,8 +13,8 @@ reproducibility check. Docker and fdroidserver are not installed on this host.
 ## Listing
 
 English listing assets are in `fastlane/metadata/android/en-US`. The current
-release is 2.4.5, versionCode 46. Screenshots and icon are copied from the
-existing documentation. Donation URL: https://ko-fi.com/lelonio.
+release is 0.0.1, versionCode 70. Screenshots and icon are copied from the
+existing documentation.
 
 ## Review questions
 

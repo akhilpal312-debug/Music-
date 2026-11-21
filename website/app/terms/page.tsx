@@ -81,9 +81,9 @@ export default function TermsPage() {
           <section>
             <h2 className="text-base font-medium text-pearl">Attribution and affiliation</h2>
             <p className="mt-3">
-              Comfort is a modified fork of Square, originally created by Lelonio under the{" "}
-              {site.license} license; the original project and its authors are credited in the
-              repository. Comfort is not affiliated with, endorsed by or sponsored by Google,
+              Comfort is a modified fork of the open-source Square player, licensed under the{" "}
+              {site.license} license; the inherited source and its third-party credits are kept in
+              the repository. Comfort is not affiliated with, endorsed by or sponsored by Google,
               YouTube, Spotify or any music service, and all trademarks belong to their respective
               owners.
             </p>

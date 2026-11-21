@@ -158,7 +158,7 @@ class PathfinderKeys(context: Context) {
         // notice and publish the new ones are upstream. The updater's [REPO]
         // points at this fork, which is not where that maintenance happens.
         const val URL =
-            "https://raw.githubusercontent.com/Lelonio/Square/master/pathfinder.json"
+            "https://raw.githubusercontent.com/akhilpal312-debug/Music-/main/pathfinder.json"
 
         /** What was true when this version was built; see the note above. */
         const val DEFAULT_HOME =

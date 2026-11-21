@@ -1,4 +1,4 @@
-"""Send a published Square release to its announcement channel and forum topic."""
+"""Send a published Comfort release to its announcement channel and forum topic."""
 import json
 import os
 import re
@@ -89,7 +89,7 @@ def formatted_markdown(markdown):
 def messages(release):
     title = release.get('name') or release['tag_name']
     text, entities = formatted_markdown(
-        f"# Square {title}\n\n[View release on GitHub]({release['html_url']})\n\n"
+        f"# Comfort {title}\n\n[View release on GitHub]({release['html_url']})\n\n"
         + (release.get('body') or 'Release notes are available on GitHub.'))
     chunks = []
     start_units = 0

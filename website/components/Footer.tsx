@@ -67,16 +67,6 @@ export function Footer() {
             </li>
             <li>
               <a
-                href={site.upstream}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-silver transition hover:text-pearl"
-              >
-                Upstream project
-              </a>
-            </li>
-            <li>
-              <a
                 href={site.issues}
                 target="_blank"
                 rel="noreferrer"
@@ -96,8 +86,8 @@ export function Footer() {
             {site.license} license.
           </p>
           <p className="max-w-xl leading-relaxed">
-            Comfort is a modified fork of Square, originally created by Lelonio and licensed under{" "}
-            {site.license}. Original source and attribution are preserved in the{" "}
+            Comfort is a modified fork of the open-source Square player, licensed under{" "}
+            {site.license}. The inherited source and its credits are kept in the{" "}
             <a href={site.repo} target="_blank" rel="noreferrer" className="text-champagne/90 underline-offset-4 hover:underline">
               public repository
             </a>

@@ -41,6 +41,6 @@ npm run build   # production build
 
 ## Attribution
 
-Comfort is a GPL-3.0 fork of [Square](https://github.com/Lelonio/Square) by Lelonio.
-The footer and legal pages keep that attribution; the site does not claim the
-inherited source was written by this project.
+Comfort is a GPL-3.0 fork of the open-source Square player. The footer and legal
+pages state that lineage; the site does not claim the inherited source was
+written by this project.

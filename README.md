@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/square.png" width="112" alt="">
+  <img src="docs/comfort.png" width="112" alt="">
 </p>
 
-<h1 align="center">Square</h1
+<h1 align="center">Comfort</h1>
 
 <p align="center">
   An unofficial Android music client for Spotify Premium and YouTube Music,
@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lelonio/Square/releases/latest"><img src="https://img.shields.io/github/v/release/Lelonio/Square?label=release" alt="Latest release"></a>
-  <a href="https://github.com/Lelonio/Square/releases"><img src="https://img.shields.io/github/downloads/Lelonio/Square/total" alt="Downloads"></a>
+  <a href="https://github.com/akhilpal312-debug/Music-/releases/latest"><img src="https://img.shields.io/github/v/release/akhilpal312-debug/Music-?label=release" alt="Latest release"></a>
+  <a href="https://github.com/akhilpal312-debug/Music-/releases"><img src="https://img.shields.io/github/downloads/akhilpal312-debug/Music-/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84" alt="Android 8.0 or later">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Lelonio/Square" alt="Licence"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/akhilpal312-debug/Music-?label=licence" alt="Licence"></a>
 </p>
 
 <p align="center">
@@ -21,7 +21,6 @@
   <a href="#features"><b>Features</b></a> ·
   <a href="#first-launch"><b>First launch</b></a> ·
   <a href="#faq"><b>FAQ</b></a> ·
-  <a href="https://t.me/+-XDmbFwz7uBkMjc0"><b>Telegram community</b></a> ·
   <a href="docs/DEVELOPMENT.md"><b>Building</b></a>
 </p>
 
@@ -68,7 +67,7 @@
 ### Library and discovery
 
 - Playlists, albums, artists and liked songs. Create, rename and delete
-  playlists, add and remove songs, pin favourites, follow artists.
+  playlists, add songs, pin favourites, follow artists.
 - A home page of shelves made for you, a **New** tab with releases and charts,
   and a **Radio** tab of stations, moods and genres.
 - Search, with your recent searches kept (swipe one away to remove it).
@@ -83,14 +82,14 @@
 
 ### Spotify extras
 
-- A **Connect** device: send playback to Square from any other device, and
+- A **Connect** device: send playback to Comfort from any other device, and
   control your other devices from it.
 - What your friends are listening to.
 - Similar playlists at the end of each playlist.
 - Song credits: performers, writers and producers.
 - What you play is saved to your listening history, as it would be anywhere
   else you listen.
-- Spotify links can open straight in Square.
+- Spotify links can open straight in Comfort.
 
 ### Android Auto
 
@@ -108,14 +107,10 @@
 
 ## Download
 
-[![Get it on Orion Store](https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png)](https://rookieenough.github.io/Orion-Data/redirect.html?id=square)
+Download the APK from the [latest release](https://github.com/akhilpal312-debug/Music-/releases/latest)
+and install it. Comfort needs Android 8.0 or later.
 
-Or
-
-Download the APK from the [latest release](https://github.com/Lelonio/Square/releases/latest)
-and install it. Square needs Android 8.0 or later.
-
-Square updates itself: it checks for new releases and installs them from the
+Comfort updates itself: it checks for new releases and installs them from the
 settings. It is not on the Play Store and cannot be; see the
 [disclaimer](#disclaimer).
 
@@ -136,7 +131,7 @@ Run before the app has been opened, the command finds nothing to compile.
 
 ## First launch
 
-Square first asks where the music should come from. You can change it later in
+Comfort first asks where the music should come from. You can change it later in
 the settings.
 
 - **YouTube Music** plays straight away. Signing in with Google, from the
@@ -149,9 +144,9 @@ the settings.
 
 ## FAQ
 
-**Square does not appear in Android Auto.**
+**Comfort does not appear in Android Auto.**
 Android Auto only lists apps installed from the Play Store. Turn on "Unknown
-sources" in Android Auto's developer settings and Square shows up.
+sources" in Android Auto's developer settings and Comfort shows up.
 
 **Can I use a free Spotify account?**
 No. A free account can sign in, but Spotify only streams to a client like this
@@ -163,27 +158,12 @@ latest release, which is usually where the fix is.
 
 ## Disclaimer
 
-Square is not affiliated with, endorsed by or connected to Spotify or Google.
-Both sources are used on terms they do not offer: Square re-implements
+Comfort is not affiliated with, endorsed by or connected to Spotify or Google.
+Both sources are used on terms they do not offer: Comfort re-implements
 Spotify's protocol, which Spotify's Terms of Service forbid, and reads YouTube
 Music through the private endpoints its own web client uses. It cannot be
 published on the Play Store, and you use it at your own risk. There is no
 warranty of any kind; see the licence.
-
-## Help and feedback
-
-- **Telegram community**: [join Square | Community](https://t.me/+-XDmbFwz7uBkMjc0) for questions, feedback, bug reports and feature requests.
-- **Release announcements**: [Square | Official](https://t.me/SquareAppOfficial) automatically shares new APKs and release notes from GitHub.
-- **Questions** (how something works, how to set it up): [Discussions, Q&A](https://github.com/Lelonio/Square/discussions/categories/q-a)
-- **Ideas and requests**: [Discussions, Ideas](https://github.com/Lelonio/Square/discussions/categories/ideas)
-- **Something broken**: [open an issue](https://github.com/Lelonio/Square/issues/new/choose). If the app closed or froze, attach a report from Settings → About → Save a report.
-
-The same two links are in the app, under Settings → About.
-
-## Support
-
-Square is free and has no ads. If it is useful to you, you can support its
-development on [Ko-fi](https://ko-fi.com/lelonio).
 
 ## Credits
 
@@ -195,7 +175,7 @@ development on [Ko-fi](https://ko-fi.com/lelonio).
 | [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) | GPL-3.0 | Anonymous YouTube Music search and stream URLs. |
 | [lossless.wtf](https://lossless.wtf) | n/a | Synced lyrics timed to the word, asked first on both sources. |
 | [LrcLib](https://lrclib.net) | n/a | Synced lyrics for the YouTube Music source, over its open API. |
-| [Spicy Lyrics](https://github.com/Spikerko/spicy-lyrics) | AGPL-3.0 | The lyrics animation, ported to Compose by [@donutnotnut](https://github.com/donutnotnut) in [#50](https://github.com/Lelonio/Square/discussions/50). |
+| [Spicy Lyrics](https://github.com/Spikerko/spicy-lyrics) | AGPL-3.0 | The lyrics animation, ported to Compose. |
 | [Bungee](https://github.com/kupix/bungee) | MPL-2.0 | Time stretching, fetched at build time. |
 | [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) | Apache-2.0 | The glass material; the catalog components are copied with their notice. |
 | [Phosphor Icons](https://phosphoricons.com) | MIT | Every icon in the app. |
@@ -212,17 +192,11 @@ in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).
 
+Comfort is a modified fork of the open-source Square player, which is
+GPL-3.0-or-later; the inherited source is kept under that licence and its
+third-party credits are listed above.
+
 The lyrics view,
 [`LyricsView.kt`](app/src/main/java/dev/lelonio/square/ui/player/LyricsView.kt),
 is ported from Spicy Lyrics and stays under AGPL-3.0, combined with the rest as
 section 13 of both licences allows.
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=lelonio%2Fsquare&type=date&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=lelonio/square&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=lelonio/square&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=lelonio/square&type=date&legend=top-left" />
- </picture>
-</a>
