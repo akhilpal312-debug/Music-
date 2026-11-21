@@ -62,7 +62,9 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'release.json'
             path.write_text(json.dumps(release()))
-            with patch.dict(os.environ, {'DRY_RUN': 'true', 'TELEGRAM_THREAD_ID': '12'}, clear=True), \
+            with patch.dict(os.environ, {'DRY_RUN': 'true', 'TELEGRAM_THREAD_ID': '12',
+                                         'TELEGRAM_CHANNEL': '@comfort_test',
+                                         'TELEGRAM_GROUP': '-1001234567890'}, clear=True), \
                  patch('sys.argv', ['telegram-release.py', str(path)]), \
                  patch.object(module.request, 'urlopen') as network, patch('builtins.print') as output:
                 module.main()
@@ -71,6 +73,17 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(preview['destinations'][1]['message_thread_id'], 12)
                 self.assertNotIn('message_thread_id', preview['destinations'][0])
                 self.assertEqual(len(preview['apks']), 3)
+
+    def test_unset_destinations_never_fall_back_to_upstream(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'release.json'
+            path.write_text(json.dumps(release()))
+            with patch.dict(os.environ, {'DRY_RUN': 'true'}, clear=True), \
+                 patch('sys.argv', ['telegram-release.py', str(path)]), \
+                 patch.object(module.request, 'urlopen') as network:
+                with self.assertRaisesRegex(ValueError, 'TELEGRAM_CHANNEL'):
+                    module.main()
+                network.assert_not_called()
 
     def test_draft_never_posts(self):
         value = release()
@@ -87,7 +100,9 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'release.json'
             path.write_text(json.dumps(release()))
-            with patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'test', 'TELEGRAM_EDIT_MESSAGES': '[5,23]'}, clear=True), \
+            with patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'test', 'TELEGRAM_EDIT_MESSAGES': '[5,23]',
+                                         'TELEGRAM_CHANNEL': '@comfort_test',
+                                         'TELEGRAM_GROUP': '-1001234567890'}, clear=True), \
                  patch('sys.argv', ['telegram-release.py', str(path)]), \
                  patch.object(module.request, 'urlopen') as network, \
                  patch.object(module, 'telegram') as api, patch('builtins.print'):

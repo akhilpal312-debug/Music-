@@ -170,8 +170,13 @@ def main():
         raise ValueError("Only published releases can be announced")
     assets = apks(release)
     notes = messages(release)
-    channel = os.environ.get("TELEGRAM_CHANNEL", "@SquareAppOfficial")
-    group = os.environ.get("TELEGRAM_GROUP", "-1003964165935")
+    # Both are required. A fallback here used to point at upstream Square's
+    # channel and supergroup, which is never where this fork's releases belong:
+    # unconfigured means stop, not announce.
+    channel = os.environ.get("TELEGRAM_CHANNEL", "").strip()
+    group = os.environ.get("TELEGRAM_GROUP", "").strip()
+    if not channel or not group:
+        raise ValueError("Set the TELEGRAM_CHANNEL and TELEGRAM_GROUP repository variables")
     thread = os.environ.get("TELEGRAM_THREAD_ID", "")
     destinations = [{"chat_id": channel}, {"chat_id": group}]
     if thread:

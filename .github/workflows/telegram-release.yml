@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: master
+          ref: main
       - name: Read published release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,8 +42,11 @@ jobs:
       - name: Publish notes and APKs
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL || '@SquareAppOfficial' }}
-          TELEGRAM_GROUP: ${{ vars.TELEGRAM_GROUP || '-1003964165935' }}
+          # No defaults on purpose: the only addresses this must never inherit
+          # are upstream Square's channel and supergroup, so an unconfigured
+          # repository fails here instead of announcing somewhere it should not.
+          TELEGRAM_CHANNEL: ${{ vars.TELEGRAM_CHANNEL }}
+          TELEGRAM_GROUP: ${{ vars.TELEGRAM_GROUP }}
           TELEGRAM_THREAD_ID: ${{ vars.TELEGRAM_THREAD_ID }}
           TELEGRAM_EDIT_MESSAGES: ${{ inputs.edit_messages }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}

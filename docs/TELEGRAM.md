@@ -2,8 +2,11 @@
 
 The `Telegram release` workflow announces a release after its GitHub draft is
 published. It posts the full release notes, followed by the ARM64, ARMv7 and
-universal APKs, to both `@SquareAppOfficial` and the community's News & Releases
-topic. It checks that all three attachments are uploaded before posting.
+universal APKs, to the two destinations configured for this repository. There
+are no default destinations: upstream Square's channel and supergroup are not
+used, and a repository without `TELEGRAM_CHANNEL` and `TELEGRAM_GROUP` set fails
+the run instead of announcing there. It checks that all three attachments are
+uploaded before posting.
 GitHub headings and bold text become Telegram bold, links are clickable,
 and inline code and fenced code blocks retain their formatting.
 
@@ -18,18 +21,19 @@ and inline code and fenced code blocks retain their formatting.
 4. In the repository's Settings → Secrets and variables → Actions, create the
    repository secret `TELEGRAM_BOT_TOKEN`. Paste the BotFather token there,
    never into source files, issues or chat messages.
-5. Confirm these repository variables, or use their workflow defaults:
+5. Set these repository variables. `TELEGRAM_CHANNEL` and `TELEGRAM_GROUP` are
+   required — there is no built-in fallback, so a release never goes to upstream
+   Square's destinations by accident:
 
-   | Variable | Default | Purpose |
+   | Variable | Required | Purpose |
    | --- | --- | --- |
-   | `TELEGRAM_CHANNEL` | `@SquareAppOfficial` | Public announcement channel |
-   | `TELEGRAM_GROUP` | `-1003964165935` | Square community supergroup |
-   | `TELEGRAM_THREAD_ID` | Empty | Optional forum topic ID |
+   | `TELEGRAM_CHANNEL` | Yes | Comfort's own public announcement channel |
+   | `TELEGRAM_GROUP` | Yes | Comfort's own community supergroup |
+   | `TELEGRAM_THREAD_ID` | No | Optional forum topic ID |
 
-   News & Releases is currently the renamed **General** topic, so leave
-   `TELEGRAM_THREAD_ID` empty. If announcements move to a regular topic later,
-   set its message thread ID instead. The group ID is derived from its Telegram
-   Web link; verify the bot's access with the first manual run.
+   Leave `TELEGRAM_THREAD_ID` empty unless announcements go to a specific forum
+   topic. The group ID is derived from its Telegram Web link; verify the bot's
+   access with the first manual run.
 
 ## Verification and publishing
 
