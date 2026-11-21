@@ -1770,6 +1770,9 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** The last song this service queued for keeping; see [startListeningRecorder]. */
+    private var autoKept: String? = null
+
     /** Measures only playback on this device, independently of the activity. */
     private fun startListeningRecorder() {
         val sampler = dev.lelonio.square.data.ListeningSampler()
@@ -1814,6 +1817,25 @@ class PlaybackService : MediaLibraryService() {
                         durationMs = metadata?.durationMs ?: player.duration.coerceAtLeast(0),
                         artworkUrl = metadata?.artworkUri?.toString(),
                     ) else null
+                    // A song that has been played is kept, so it can be played
+                    // again with nothing but the phone: it goes on the store's
+                    // shelf of singles, and the download service fetches it.
+                    //
+                    // Only while it is actually playing — a queue should not be
+                    // fetched a song ahead of being heard — and only once per
+                    // song, since this loop runs every second.
+                    if (track != null && player.isPlaying && !remote &&
+                        autoKept != track.uri &&
+                        container.downloads.isFetchable(track.uri) &&
+                        !container.downloads.isDownloaded(track.uri) &&
+                        !container.downloads.progress.value.containsKey(track.uri)
+                    ) {
+                        autoKept = track.uri
+                        scope.launch {
+                            container.downloads.addSingle(track)
+                            dev.lelonio.square.download.DownloadService.start(this@PlaybackService)
+                        }
+                    }
                     val tick = android.os.SystemClock.elapsedRealtime()
                     val event = sampler.sample(track, player.isPlaying && !remote, System.currentTimeMillis(), tick)
                     if (event != null && (tick - lastSaved >= 10_000 || previouslyPlaying != player.isPlaying || event.track.uri != track?.uri)) {

@@ -115,6 +115,7 @@ import dev.lelonio.square.data.CanvasClip
 import dev.lelonio.square.data.Catalog
 import dev.lelonio.square.data.CatalogPlaylist
 import dev.lelonio.square.data.CatalogTrack
+import dev.lelonio.square.data.DownloadState
 import dev.lelonio.square.data.Lyrics
 import dev.lelonio.square.backend.youtube.YouTubeVideoMode
 import dev.lelonio.square.playback.AudioEffects
@@ -464,6 +465,7 @@ fun SquareApp(
     viewModel: MainViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val downloadStates by viewModel.downloadStates.collectAsStateWithLifecycle()
     val listeningEvents by viewModel.listeningEvents.collectAsStateWithLifecycle()
     LaunchedEffect(state is MainViewModel.UiState.Ready) {
         if (state is MainViewModel.UiState.Ready) while (true) {
@@ -3216,6 +3218,29 @@ fun SquareApp(
                           ) {
                             PlayerScreen(
                                 state = playerState,
+                                // The song in the ears, kept on the phone: off
+                                // for a local file, which is already here.
+                                downloadState = playerState.mediaId
+                                    ?.takeIf {
+                                        !dev.lelonio.square.data.LocalLibrary.isLocal(it) &&
+                                            !dev.lelonio.square.data.LocalLibrary.isSpotifyLocal(it)
+                                    }
+                                    ?.let { uri -> downloadStates[uri] ?: DownloadState.None },
+                                onToggleDownload = {
+                                    playerState.mediaId?.let { uri ->
+                                        viewModel.toggleTrackDownload(
+                                            CatalogTrack(
+                                                uri = uri,
+                                                name = playerState.title,
+                                                artist = playerState.artist,
+                                                album = playerState.album,
+                                                albumUri = playerState.albumUri,
+                                                durationMs = playerState.durationMs,
+                                                artworkUrl = playerState.artworkUrl,
+                                            ),
+                                        )
+                                    }
+                                },
                                 djSpeaking = djSpeaking,
                                 // The title is the way onto the record. The
                                 // address travels with the queue where the

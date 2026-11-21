@@ -115,6 +115,7 @@ import dev.lelonio.square.ui.glass.backdrop.backdrops.layerBackdrop
 import dev.lelonio.square.ui.glass.backdrop.backdrops.rememberCombinedBackdrop
 import dev.lelonio.square.ui.glass.backdrop.backdrops.rememberLayerBackdrop
 import dev.lelonio.square.R
+import dev.lelonio.square.data.DownloadState
 import dev.lelonio.square.ui.MainViewModel
 import dev.lelonio.square.ui.components.Artwork
 import dev.lelonio.square.ui.glass.GlassBlendGroup
@@ -138,6 +139,8 @@ import com.adamglin.phosphoricons.fill.SkipBack
 import com.adamglin.phosphoricons.fill.SkipForward
 import com.adamglin.phosphoricons.regular.CaretDown
 import com.adamglin.phosphoricons.regular.Devices
+import com.adamglin.phosphoricons.regular.DownloadSimple
+import com.adamglin.phosphoricons.fill.DownloadSimple
 import com.adamglin.phosphoricons.regular.Heart
 import com.adamglin.phosphoricons.regular.Check
 import com.adamglin.phosphoricons.regular.Plus
@@ -353,6 +356,15 @@ fun PlayerScreen(
     /** Whether the listener has asked to watch rather than listen. */
     videoMode: Boolean = false,
     onToggleVideo: () -> Unit = {},
+    /**
+     * How the song's own download is going.
+     *
+     * Null keeps the button off the screen altogether: a local file, or a
+     * source with nothing to fetch, has nothing for it to do.
+     */
+    downloadState: DownloadState? = null,
+    /** Keep this song on the phone, or stop keeping it. */
+    onToggleDownload: () -> Unit = {},
     reverb: Float,
     onSpeed: (Float) -> Unit,
     onPitch: (Float) -> Unit,
@@ -1716,6 +1728,34 @@ fun PlayerScreen(
                                     },
                                     onOpenAlbum = onOpenAlbum,
                                 )
+                                // The song in your ears, kept on the phone:
+                                // the same thing the downloads page does for a
+                                // playlist, for the one track playing now.
+                                if (downloadState != null) {
+                                    Spacer(Modifier.size(8.dp))
+                                    RoundGlassButton(
+                                        backdrop = lowerBackdrop,
+                                        size = 40.dp,
+                                        onClick = onToggleDownload,
+                                    ) {
+                                        val kept = downloadState is DownloadState.Done
+                                        Icon(
+                                            if (kept) PhosphorIcons.Fill.DownloadSimple
+                                            else PhosphorIcons.Regular.DownloadSimple,
+                                            contentDescription = stringResource(
+                                                if (kept) R.string.remove_download else R.string.download,
+                                            ),
+                                            tint = when (downloadState) {
+                                                is DownloadState.None -> panelTint(false)
+                                                is DownloadState.Queued -> panelTint(true)
+                                                is DownloadState.Running -> panelTint(true)
+                                                is DownloadState.Done -> SavedInk
+                                                is DownloadState.Failed -> panelTint(false)
+                                            },
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
+                                }
                                 // A station built from this track, the way the
                                 // official client's own radio button does it.
                                 if (onRadio != null) {

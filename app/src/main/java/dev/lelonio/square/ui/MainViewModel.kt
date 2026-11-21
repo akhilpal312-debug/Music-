@@ -15,6 +15,7 @@ import dev.lelonio.square.backend.SearchLabels
 import dev.lelonio.square.R
 import dev.lelonio.square.data.Catalog
 import dev.lelonio.square.data.SpotifyApi
+import dev.lelonio.square.data.DownloadState
 import dev.lelonio.square.data.DownloadStore
 import dev.lelonio.square.download.DownloadService
 import dev.lelonio.square.data.AddTracksRequestDto
@@ -3902,6 +3903,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         container.downloads.owners
             .map { it[DownloadStore.SINGLES].orEmpty().toSet() }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /**
+     * How each song's own download is going, for the player's button.
+     *
+     * A flow rather than a call to the store, because the button has to redraw
+     * itself when a download starts, moves and finishes. The store answers per
+     * track off four separate flows, so they are joined here once instead of
+     * the player watching all four.
+     */
+    val downloadStates: StateFlow<Map<String, DownloadState>> =
+        combine(
+            container.downloads.files,
+            container.downloads.progress,
+            container.downloads.failures,
+            container.downloads.owners,
+        ) { files, progress, failures, owners ->
+            val wanted = owners.values.flatten().toSet()
+            buildMap {
+                wanted.forEach { uri -> if (uri !in files) put(uri, DownloadState.Queued) }
+                failures.forEach { (uri, failure) -> put(uri, DownloadState.Failed(failure.reason)) }
+                progress.forEach { (uri, fraction) -> put(uri, DownloadState.Running(fraction)) }
+                files.keys.forEach { uri -> put(uri, DownloadState.Done) }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /**
      * Starts the downloads the listener just asked for, and says so when they

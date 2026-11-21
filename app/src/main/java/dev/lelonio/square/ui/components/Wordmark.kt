@@ -48,8 +48,8 @@ fun SquareWordmark(
     Canvas(
         modifier
             .height(height)
-            // 6 glyphs on a 9.5-unit advance, over a 12-unit box.
-            .width(height * (6f * 9.5f / 12f)),
+            // 7 glyphs on a 9.5-unit advance, over a 12-unit box.
+            .width(height * (7f * 9.5f / 12f)),
     ) {
         val unit = size.height / 12f
         // The stroke stays near one unit and the advance well over the glyph
@@ -181,30 +181,32 @@ fun AppGlyph(size: Dp, modifier: Modifier = Modifier, tint: Color = Ink) {
     )
 }
 
-/** S Q U A R E, as polylines on the grid described in [SquareWordmark]. */
+/** C O M F O R T, as polylines on the grid described in [SquareWordmark]. */
 private val GLYPHS: List<List<List<Pair<Float, Float>>>> = listOf(
-    // S
-    listOf(listOf(6f to 0f, 0f to 0f, 0f to 5f, 6f to 5f, 6f to 10f, 0f to 10f)),
-    // Q: a closed box with the tail dropped out of the bottom right.
-    listOf(
-        listOf(0f to 0f, 6f to 0f, 6f to 10f, 0f to 10f, 0f to 0f),
-        listOf(4f to 8f, 4f to 12f),
-    ),
-    // U
-    listOf(listOf(0f to 0f, 0f to 10f, 6f to 10f, 6f to 0f)),
-    // A: the apex is a corner, not a point.
+    // C
+    listOf(listOf(6f to 0f, 0f to 0f, 0f to 10f, 6f to 10f)),
+    // O: a closed box, as the wordmark has always drawn it.
+    listOf(listOf(0f to 0f, 6f to 0f, 6f to 10f, 0f to 10f, 0f to 0f)),
+    // M
     listOf(
         listOf(0f to 10f, 0f to 0f, 6f to 0f, 6f to 10f),
-        listOf(0f to 6f, 6f to 6f),
+        listOf(3f to 0f, 3f to 6f),
     ),
+    // F
+    listOf(
+        listOf(6f to 0f, 0f to 0f, 0f to 10f),
+        listOf(0f to 5f, 4f to 5f),
+    ),
+    // O
+    listOf(listOf(0f to 0f, 6f to 0f, 6f to 10f, 0f to 10f, 0f to 0f)),
     // R: the leg comes straight down instead of splaying.
     listOf(
         listOf(0f to 10f, 0f to 0f, 6f to 0f, 6f to 5f, 0f to 5f),
         listOf(3f to 5f, 3f to 10f),
     ),
-    // E
+    // T
     listOf(
-        listOf(6f to 0f, 0f to 0f, 0f to 10f, 6f to 10f),
-        listOf(0f to 5f, 4f to 5f),
+        listOf(0f to 0f, 6f to 0f),
+        listOf(3f to 0f, 3f to 10f),
     ),
 )
