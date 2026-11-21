@@ -153,9 +153,12 @@ class PathfinderKeys(context: Context) {
         /** A sha256 in hex, and a way to notice a file that says something else. */
         const val HASH_LENGTH = 64
 
+        // Upstream's file, not this fork's copy of it: the identifiers are
+        // retired whenever Spotify rebuilds its web client, and the people who
+        // notice and publish the new ones are upstream. The updater's [REPO]
+        // points at this fork, which is not where that maintenance happens.
         const val URL =
-            "https://raw.githubusercontent.com/${dev.lelonio.square.update.Updater.REPO}" +
-                "/master/pathfinder.json"
+            "https://raw.githubusercontent.com/Lelonio/Square/master/pathfinder.json"
 
         /** What was true when this version was built; see the note above. */
         const val DEFAULT_HOME =

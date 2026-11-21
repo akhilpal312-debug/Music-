@@ -95,7 +95,7 @@ object Report {
      */
     suspend fun build(context: Context, names: List<String>): File = withContext(Dispatchers.IO) {
         val text = buildString {
-            appendLine("Square ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TYPE})")
+            appendLine("Comfort ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TYPE})")
             appendLine("${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
             appendLine("Written ${stamp(System.currentTimeMillis())}")
             appendLine()
@@ -120,7 +120,7 @@ object Report {
         }
         val dir = File(context.cacheDir, REPORT_DIR).apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        File(dir, "square-report-${BuildConfig.VERSION_NAME}.txt").apply {
+        File(dir, "comfort-report-${BuildConfig.VERSION_NAME}.txt").apply {
             writeText(redact(text, names))
         }
     }

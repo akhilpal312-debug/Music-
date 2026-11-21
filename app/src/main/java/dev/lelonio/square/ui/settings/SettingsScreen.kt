@@ -926,6 +926,14 @@ fun SettingsScreen(
             }
         }
 
+        // The update on its own, never folded away: the one thing on this
+        // page somebody comes to do rather than to read.
+        if (shown == SettingsPage.About) item("update") {
+            Section(null) {
+                UpdateRow(askToInstall)
+            }
+        }
+
         if (shown == SettingsPage.About) groupHeading(Group.ABOUT, open = "about" in openGroups) { toggleGroup("about") }
 
         if (shown == SettingsPage.About && "about" in openGroups) groupItem("about", Group.ABOUT) {
@@ -2542,5 +2550,8 @@ private val LICENCES = listOf(
 /** Who makes this build, as the About page names them. */
 private const val DEVELOPER_NAME = "Akhil"
 private const val INSTAGRAM_URL = "https://www.instagram.com/iamakhil_yt/"
-private const val DISCUSSIONS_URL = "https://github.com/Lelonio/Square/discussions"
-private const val NEW_ISSUE_URL = "https://github.com/Lelonio/Square/issues/new/choose"
+private const val GITHUB_URL = "https://github.com/akhilpal312-debug/Music-"
+
+/** Questions and ideas: this project's issue list, where both are filed. */
+private const val DISCUSSIONS_URL = "$GITHUB_URL/issues"
+private const val NEW_ISSUE_URL = "$GITHUB_URL/issues/new"

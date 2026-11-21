@@ -75,22 +75,28 @@ class Updater(context: Context) {
     /**
      * Asks GitHub what the latest release is.
      *
+     * [REPO] is this project's own repository, not the one the app was forked
+     * from: an update has to be signed with the same key as the copy on the
+     * phone, and only the builds published here are.
+     *
      * Unauthenticated, which allows sixty requests an hour per address — far
-     * more than a button can spend. It is still a request the user did not ask
-     * for, which is why nothing here runs on its own: it is called when the
-     * button is pressed and at no other time.
+     * more than the six-hourly check at launch can spend.
      */
     suspend fun check() {
-        // This is Comfort, a customised build, not the app the releases in
-        // upstream's repository belong to. Asking there would offer a version
-        // this app cannot become: Android refuses an APK signed with a
-        // different key, and installing it would replace the Comfort branding,
-        // the Instagram link and the playback fixes with upstream's again.
-        //
-        // So nothing is asked for and nothing is ever offered. The rest of the
-        // class stays because the installer path is still the only way this
-        // app could ship a build of its own later.
-        _state.value = State.UpToDate
+        _state.value = State.Checking
+        val result = runCatching { withContext(Dispatchers.IO) { latestRelease() } }
+            .getOrElse {
+                android.util.Log.w(TAG, "check failed: $it")
+                _state.value = State.Failed(it.message ?: "network")
+                return
+            }
+
+        if (result == null || !isNewer(result.version, BuildConfig.VERSION_NAME)) {
+            _state.value = State.UpToDate
+            return
+        }
+        _state.value =
+            State.Available(result.version, result.url, result.bytes, result.notes)
     }
 
     /**
@@ -129,6 +135,9 @@ class Updater(context: Context) {
             .build()
 
         client.newCall(request).execute().use { response ->
+            // No release published yet is not a failure: there is simply
+            // nothing to offer, which is the same answer as being current.
+            if (response.code == 404) return null
             if (!response.isSuccessful) error("HTTP ${response.code}")
             val body = json.parseToJsonElement(response.body?.string().orEmpty()) as? JsonObject
                 ?: return null
@@ -315,7 +324,7 @@ class Updater(context: Context) {
     companion object {
         private const val TAG = "Updater"
 
-        const val REPO = "Lelonio/Square"
+        const val REPO = "akhilpal312-debug/Music-"
 
         /** Told apart from a network failure so the UI can offer the way out. */
         const val REASON_PERMISSION = "permission"

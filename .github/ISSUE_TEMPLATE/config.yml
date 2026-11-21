@@ -1,8 +1,5 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: Ask a question
-    url: https://github.com/Lelonio/Square/discussions/categories/q-a
-    about: How something works, how to set it up, whether it can do something.
-  - name: Suggest an idea
-    url: https://github.com/Lelonio/Square/discussions/categories/ideas
-    about: Features and changes you would like to see.
+  - name: Ask a question or suggest an idea
+    url: https://github.com/akhilpal312-debug/Music-/issues
+    about: Open an issue here and say what you have in mind.
