@@ -1,152 +1,141 @@
-"""Turns the icon source into every icon resource the app ships.
+"""Turns the supplied Comfort logo into every icon resource the app ships.
 
 Run it after changing the artwork:
 
     python3 tools/icon.py
 
-Source: app/icon-src/icona.png. Light and dark launchers get the same icon —
-it is a dark plate with a bright mark, which is legible either way, and two
-variants of one design would only drift apart.
+Source of truth: `app/icon-src/comfort-logo.png`, the artwork Akhil supplied.
+Nothing here redraws it. The mark is lifted out of the plate by luminance,
+cropped to its own bounds and re-centred, then composited onto the plate sizes
+the launcher asks for. The source file is only ever read, never written.
 
-Two things here are not a plain resize.
+Why the mark is lifted rather than the image resized: an adaptive icon is 108
+units wide, but the launcher shows 72 of them and guarantees only the middle 66.
+Resizing the image leaves the mark's ends outside that window on a round mask,
+which is what the old artwork did. Sizing by the mark keeps it whole under every
+mask.
 
-The artwork is sized by *the mark*, not by the image. An adaptive icon is 108
-units wide, of which the launcher shows 72 and guarantees only the middle 66;
-sizing by the image left the wave's ends outside that window and the launcher
-cut them off.
-
-And the plate's own colour fills the rest of the canvas — sampled from the
-artwork, and also written into colors.xml as the adaptive background. Whatever
-mask the launcher applies then cuts into flat colour instead of into the mark.
+The legacy icons are full-bleed (rounded square) and circular plates, so a
+launcher that masks its legacy icons cuts into flat colour instead of into the
+mark, and one that does not still gets a finished shape.
 """
 
-from PIL import Image
+from PIL import Image, ImageDraw
 import os
 
-SOURCE = "app/icon-src/icona.png"
+SOURCE = "app/icon-src/comfort-logo.png"
 RES = "app/src/main/res"
 
-DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
+DENSITIES = {"mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0}
 
-FOREGROUND_DP = 108
-SAFE_DP = 66
 LEGACY_DP = 48
+FOREGROUND_DP = 108
+APP_MARK_DP = 24
+
+# The mark as a fraction of the canvas. 0.56 of 108 is 60.5 units, comfortably
+# inside the 66-unit safe window, so no mask can clip the mark's ends.
+MARK_ON_PLATE = 0.56
+MARK_ON_FOREGROUND = 0.56
 
 
-def opaque_only(img):
-    """Drops the source's own backdrop, keeping the plate.
+def plate_colour(logo):
+    """The artwork's own backdrop, sampled away from the mark.
 
-    The artwork is a plate over a half-transparent grey field — a checkerboard
-    stand-in that reads as nothing on its own and as a grey square the moment it
-    is composited onto anything. Everything below full opacity goes; the edge is
-    then softened by a pixel so the plate keeps its antialiasing.
+    The supplied logo is the mark on a flat plate, so a corner is the plate —
+    the mark never reaches it. Taken as the median of a small patch so a stray
+    pixel cannot shift the adaptive background away from the legacy icons.
     """
-    from PIL import ImageFilter
+    rgb = logo.convert("RGB")
+    patch = [rgb.getpixel((x, y)) for y in range(8) for x in range(8)]
+    channels = list(zip(*patch))
+    return tuple(sorted(c)[len(c) // 2] for c in channels)
 
-    alpha = img.getchannel("A").point(lambda value: 255 if value > 200 else 0)
-    alpha = alpha.filter(ImageFilter.GaussianBlur(0.8))
-    out = img.copy()
+
+def mark_layer(logo):
+    """The white mark alone, transparent everywhere else.
+
+    The plate is near-black and the mark near-white, so luminance is already
+    the alpha the mark needs; the ramp between them keeps the artwork's own
+    antialiasing instead of the hard edge a threshold would leave.
+    """
+    luma = logo.convert("RGB").convert("L")
+    alpha = luma.point(lambda v: 0 if v <= 48 else (255 if v >= 200 else round((v - 48) * 255 / 152)))
+    out = Image.new("RGBA", logo.size, (255, 255, 255, 0))
     out.putalpha(alpha)
-    return out
+
+    bounds = alpha.point(lambda v: 255 if v > 10 else 0).getbbox()
+    if bounds is None:  # a blank source is a mistake worth stopping on
+        raise SystemExit(f"{SOURCE}: no mark found — is the artwork transparent?")
+    return out.crop(bounds)
 
 
-def plate_colour(img):
-    """The plate's colour where it meets the background.
-
-    Read around a ring just inside the plate's edge, and taken as a median.
-    Not a corner — this artwork is a circle on transparency, so the corners are
-    empty — and not a single point either: the plate is shaded, so one sample
-    picks up whatever the gradient happens to be doing there and the seam shows.
-    The edge is what the adaptive background butts against, so the edge is what
-    it should match.
-    """
-    import math
-
-    radius = min(img.width, img.height) * 0.46
-    centre = (img.width / 2, img.height / 2)
-    samples = []
-    for step in range(24):
-        angle = step / 24 * 2 * math.pi
-        x = round(centre[0] + radius * math.cos(angle))
-        y = round(centre[1] + radius * math.sin(angle))
-        r, g, b, a = img.getpixel((x, y))
-        if a > 200:
-            samples.append((r, g, b))
-
-    channels = [sorted(channel)[len(channel) // 2] for channel in zip(*samples)]
-    return (channels[0], channels[1], channels[2], 255)
-
-
-def mark_bounds(img, plate):
-    """The wave's bounding box: what differs from the plate and is opaque."""
-    pixels = img.load()
-    tolerance = 40
-    left, top, right, bottom = img.width, img.height, 0, 0
-    for y in range(0, img.height, 2):
-        for x in range(0, img.width, 2):
-            r, g, b, a = pixels[x, y]
-            if a < 200:
-                continue
-            if abs(r - plate[0]) + abs(g - plate[1]) + abs(b - plate[2]) < tolerance:
-                continue
-            left, top = min(left, x), min(top, y)
-            right, bottom = max(right, x), max(bottom, y)
-    return left, top, right, bottom
-
-
-def build(suffix):
-    src = opaque_only(Image.open(SOURCE).convert("RGBA"))
-    plate = plate_colour(src)
-    left, top, right, bottom = mark_bounds(src, plate)
-    mark = max(right - left, bottom - top)
-
-    for density, density_scale in DENSITIES.items():
-        canvas_px = round(FOREGROUND_DP * density_scale)
-        safe_px = round(SAFE_DP * density_scale)
-
-        scale = safe_px / mark
-        art = src.resize(
-            (max(1, round(src.width * scale)), max(1, round(src.height * scale))),
-            Image.LANCZOS,
-        )
-        # Centred on the mark rather than on the image: the two need not agree.
-        centre = ((left + right) / 2 * scale, (top + bottom) / 2 * scale)
-
-        canvas = Image.new("RGBA", (canvas_px, canvas_px), plate)
-        canvas.paste(
-            art,
-            (round(canvas_px / 2 - centre[0]), round(canvas_px / 2 - centre[1])),
-            art,
-        )
-
-        out = f"{RES}/mipmap{suffix}-{density}"
-        os.makedirs(out, exist_ok=True)
-        canvas.save(f"{out}/ic_launcher_foreground.png")
-
-        # The whole icon, for launchers older than adaptive icons. Composited
-        # onto the plate: those do not mask, so transparency would show the
-        # home screen through the artwork's edges.
-        legacy_px = round(LEGACY_DP * density_scale)
-        legacy = Image.new("RGBA", (legacy_px, legacy_px), plate)
-        scaled = src.resize((legacy_px, legacy_px), Image.LANCZOS)
-        legacy.paste(scaled, (0, 0), scaled)
-        legacy.save(f"{out}/ic_launcher.png")
-        legacy.save(f"{out}/ic_launcher_round.png")
-
-    return plate
-
-
-def colours_xml(colour):
-    return (
-        '<?xml version="1.0" encoding="utf-8"?>\n'
-        "<resources>\n"
-        "    <!-- Sampled from the icon's own plate by tools/icon.py, so the\n"
-        "         adaptive icon's background and its artwork meet invisibly. -->\n"
-        f'    <color name="ic_launcher_background">#{colour[0]:02X}{colour[1]:02X}{colour[2]:02X}</color>\n'
-        "</resources>\n"
+def place(canvas, mark, width):
+    scaled = mark.resize(
+        (max(1, round(width)), max(1, round(width * mark.height / mark.width))),
+        Image.LANCZOS,
+    )
+    canvas.alpha_composite(
+        scaled,
+        ((canvas.width - scaled.width) // 2, (canvas.height - scaled.height) // 2),
     )
 
 
-plate = build("")
-open(f"{RES}/values/colors.xml", "w").write(colours_xml(plate))
-print("plate", plate)
+def plate(size, colour, mark, round_shape):
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    box = (0, 0, size - 1, size - 1)
+    if round_shape:
+        draw.ellipse(box, fill=colour + (255,))
+    else:
+        draw.rounded_rectangle(box, radius=round(size * 0.22), fill=colour + (255,))
+    place(canvas, mark, size * MARK_ON_PLATE)
+    return canvas
+
+
+def save(image, path):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    image.save(path, "PNG", optimize=True)
+    print(f"{path}  {image.width}x{image.height}")
+
+
+def main():
+    logo = Image.open(SOURCE).convert("RGBA")
+    colour = plate_colour(logo)
+    mark = mark_layer(logo)
+    print(f"plate #{colour[0]:02X}{colour[1]:02X}{colour[2]:02X}, mark {mark.width}x{mark.height}")
+
+    for density, scale in DENSITIES.items():
+        legacy = round(LEGACY_DP * scale)
+        save(plate(legacy, colour, mark, round_shape=False), f"{RES}/mipmap-{density}/ic_launcher.png")
+        save(plate(legacy, colour, mark, round_shape=True), f"{RES}/mipmap-{density}/ic_launcher_round.png")
+
+        # The adaptive background is the plate extended to the edges: whatever
+        # mask the launcher applies then cuts into flat colour.
+        background = Image.new("RGBA", (round(FOREGROUND_DP * scale),) * 2, colour + (255,))
+        save(background, f"{RES}/mipmap-{density}/ic_launcher_background.png")
+
+        foreground = Image.new("RGBA", (round(FOREGROUND_DP * scale),) * 2, (0, 0, 0, 0))
+        place(foreground, mark, foreground.width * MARK_ON_FOREGROUND)
+        save(foreground, f"{RES}/mipmap-{density}/ic_launcher_foreground.png")
+
+        # The in-app mark and the notification silhouette: the mark alone, no
+        # plate. Both are drawn inside something the app already plates.
+        sized = round(APP_MARK_DP * scale)
+        app_mark = Image.new("RGBA", (sized, sized), (0, 0, 0, 0))
+        place(app_mark, mark, sized)
+        save(app_mark, f"{RES}/drawable-{density}/ic_app_mark.png")
+
+        notification = Image.new("RGBA", (sized, sized), (0, 0, 0, 0))
+        place(notification, mark, sized * 0.94)
+        save(notification, f"{RES}/drawable-{density}/ic_notification.png")
+
+        # The themed icon is one flat colour read from alpha alone.
+        monochrome = Image.new("RGBA", (round(FOREGROUND_DP * scale),) * 2, (0, 0, 0, 0))
+        place(monochrome, mark, monochrome.width * MARK_ON_FOREGROUND)
+        save(monochrome, f"{RES}/drawable-{density}/ic_launcher_monochrome.png")
+
+    print(f"\nic_launcher_background: #{colour[0]:02X}{colour[1]:02X}{colour[2]:02X}")
+
+
+if __name__ == "__main__":
+    main()
