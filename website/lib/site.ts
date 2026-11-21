@@ -3,7 +3,7 @@ export const site = {
   tagline: "Feel the Music, Live in Comfort",
   description:
     "Comfort is a premium Android music player. Stream, play and enjoy your favourite songs with a smooth, elegant experience — free and open source.",
-  url: "https://comfort-music-app.vercel.app",
+  url: "https://comfort-akhilpal312-9636.vercel.app",
   developer: {
     name: "Akhil",
     role: "Developer & Creator",
