@@ -4055,7 +4055,9 @@ fun SquareApp(
                 // Here rather than at the top of the app: a sheet made of
                 // glass has to be drawn where there is a layer to refract, and
                 // this is the layer the other sheets use.
-                UpdatePrompt(overlayBackdrop, onOpenChange = { updateOpen = it })
+                //
+                // The update prompt is deliberately not drawn: this build only
+                // ever installs builds of itself. See Updater.check.
 
                 AddToPlaylistSheet(
                     state = addToPlaylist,

@@ -81,20 +81,16 @@ class Updater(context: Context) {
      * button is pressed and at no other time.
      */
     suspend fun check() {
-        _state.value = State.Checking
-        val result = runCatching { withContext(Dispatchers.IO) { latestRelease() } }
-            .getOrElse {
-                android.util.Log.w(TAG, "check failed: $it")
-                _state.value = State.Failed(it.message ?: "network")
-                return
-            }
-
-        if (result == null || !isNewer(result.version, BuildConfig.VERSION_NAME)) {
-            _state.value = State.UpToDate
-            return
-        }
-        _state.value =
-            State.Available(result.version, result.url, result.bytes, result.notes)
+        // This is Comfort, a customised build, not the app the releases in
+        // upstream's repository belong to. Asking there would offer a version
+        // this app cannot become: Android refuses an APK signed with a
+        // different key, and installing it would replace the Comfort branding,
+        // the Instagram link and the playback fixes with upstream's again.
+        //
+        // So nothing is asked for and nothing is ever offered. The rest of the
+        // class stays because the installer path is still the only way this
+        // app could ship a build of its own later.
+        _state.value = State.UpToDate
     }
 
     /**
