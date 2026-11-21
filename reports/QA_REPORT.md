@@ -1,7 +1,7 @@
 # Comfort — QA Report
 
 **Application:** Comfort (internal package `dev.lelonio.square`, versionName `2.10.4`, versionCode 70)
-**Build date:** 2026-11-20
+**Build date:** 2026-11-21 (logo/branding rebuild)
 **Report scope:** everything that was actually executed, plus an explicit list of what could not be executed.
 
 ---
@@ -35,13 +35,13 @@ All Kotlin edits (branding, developer section, preferences default) compile. Onl
 ### 2.2 Debug APKs
 ```
 ./gradlew :app:assembleDebug --no-daemon
-→ BUILD SUCCESSFUL
+→ BUILD SUCCESSFUL in 2m 37s  (66 tasks; cargoBuild rebuilt libsquarecore for both ABIs)
 ```
 | Artifact | Size |
 |---|---|
-| `app-arm64-v8a-debug.apk` | 52,085,765 B (≈49.7 MiB) |
-| `app-armeabi-v7a-debug.apk` | 48,624,685 B (≈46.4 MiB) |
-| `app-universal-debug.apk` | 61,044,073 B (≈58.2 MiB) |
+| `app-arm64-v8a-debug.apk` | 52,008,996 B (≈49.6 MiB) |
+| `app-armeabi-v7a-debug.apk` | 48,550,732 B (≈46.3 MiB) |
+| `app-universal-debug.apk` | 60,986,504 B (≈58.2 MiB) |
 
 Both `cargoBuild` (Rust `libsquarecore.so`, 9.8 MB) and the CMake `Bungee` target ran as part of this build, and `libsquarecore.so`, `libspotstretch.so`, `libffmpegJNI.so` are present in the APKs. Log: `gradle-apk.log`.
 
@@ -60,9 +60,26 @@ These are the project's existing JVM unit tests. They cover pure-Kotlin logic; *
 
 ### 2.4 Release APK + AAB
 ```
-./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
+./gradlew :app:testDebugUnitTest :app:assembleRelease -PdisableAbiSplits=true --no-daemon
+→ BUILD SUCCESSFUL in 4m 45s   (121 tasks)
+./gradlew :app:bundleRelease -PdisableAbiSplits=true --no-daemon
+→ BUILD SUCCESSFUL in 18s
+./gradlew :app:assembleRelease --no-daemon        # per-ABI release APKs
+→ see build/logs/release-splits.log
 ```
-Result is recorded in `gradle-release.log` (see the `RELEASEEXIT=` line at the end of that file). Artifacts land in `app/build/outputs/apk/release/` and `app/build/outputs/bundle/release/` and are delivered alongside this report.
+Logs: `build/logs/assembleDebug.log`, `build/logs/release.log`, `build/logs/bundle.log`, `build/logs/release-splits.log`.
+
+| Artifact | Size | SHA-256 |
+|---|---|---|
+| `Comfort-2.10.4-universal-release.apk` | 27,365,971 B (≈26.1 MiB) | `07f77de0bad46bc8f0adea0c470d4d8d15d808e99eb14f57500f672c1ce03fae` |
+| `Comfort-2.10.4-release.aab` | 25,094,504 B (≈23.9 MiB) | `622fe38f1f7618202964b8b159677755d98da4224fed141b1fc3d7627520d40c` |
+| `Comfort-2.10.4-universal-debug.apk` | 60,986,504 B (≈58.2 MiB) | — |
+
+Release APK contains exactly two native ABIs, 4 `.so` files each (`arm64-v8a`, `armeabi-v7a`).
+
+`aapt2 dump badging` on the release APK: `application-label:'Comfort'` in **all 85 locale variants**, `application: label='Comfort'`, `launchable-activity: dev.lelonio.square.ui.MainActivity`, `versionCode 70`, `versionName 2.10.4`, `minSdk 26`, `targetSdk 35`.
+
+`apksigner verify --print-certs`: `CN=Android Debug` — consistent with the signing caveat below.
 
 **Signing caveat:** the project has no `keystore.properties`, so the release build falls back to the **debug signing key**. The APK installs and runs on a device, but it is **not Play-Store-distributable**. A real upload key must be configured before publishing to Google Play.
 
@@ -81,6 +98,22 @@ Verified by grepping the built source (commands and results below), not by scree
 | Instagram URL | `grep INSTAGRAM_URL` | `"https://www.instagram.com/iamakhil_yt/"`, opened via `uriHandler.openUri(...)` |
 | Developer portrait | `grep dev_akhil` | `painterResource(R.drawable.dev_akhil)` in the existing `Image(...)` slot, `contentDescription = DEVELOPER_NAME` |
 | Remaining `Square` literals in Kotlin | `grep '"[^"]*Square[^"]*"'` | Only **log tags** (`"SquarePlayer"`, `"SquareNetwork"`, `"SquareStretch"`, `"SquareSession"`, …). These are internal technical identifiers and were intentionally preserved. |
+
+### 3.1 Supplied Comfort logo and launcher icon — verified in the shipped APK
+
+The launcher icon, adaptive foreground, round icon, monochrome icon, in-app `ic_app_mark` and `ic_notification` were all regenerated from the single supplied asset `logo_no_watermark.png` (the white C-wave mark on `#181C1D`), copied into the project as `app/icon-src/comfort-logo.png`. No artwork was invented, traced, generated or recoloured; the mark was only cropped from its plate and scaled per density.
+
+| Check | Method | Result |
+|---|---|---|
+| Release APK ships the new artwork | extracted every `res/*.png` from `app-release.apk`, decoded each and compared pixels with the generated sources | `ic_launcher`, `ic_app_mark`, `ic_notification` each matched a packaged resource **pixel-for-pixel** (`res/o-.png`, `res/hJ.png`, `res/Kf.png`) |
+| Adaptive icon layers | `aapt2 dump resources` | `mipmap/ic_launcher` + `ic_launcher_foreground` present for mdpi→xxxhdpi, `mipmap/ic_launcher_background` = `#181C1D`, `monochrome` → `drawable/ic_launcher_monochrome` |
+| Mark is a proper alpha mask | alpha histogram of the generated PNGs | `ic_launcher_foreground` 11.0 % opaque / 88.2 % transparent; `ic_app_mark` 34.1 % opaque; `ic_notification` 29.9 % opaque — so `Icon(tint = Ink)` recolours cleanly |
+| Legacy / round icons | `mipmap-*/ic_launcher_round.png` regenerated per density (circle plate) | present mdpi→xxxhdpi |
+| Notifications | `drawable-*/ic_notification.png` regenerated (white mark, alpha) | present mdpi→xxxhdpi |
+| Launcher label | `aapt2 dump badging` | `Comfort` (all locales) |
+| Old Square icon artwork | `git status` + resource tree | old green-wave vector drawables `ic_app_mark.xml`, `ic_notification.xml`, `ic_launcher_monochrome.xml` deleted and replaced by the new PNGs at the same resource IDs |
+
+**Not verified:** how the icon looks under each OEM launcher mask (circle, squircle, teardrop), on a light launcher wallpaper, on the splash screen and in the app drawer — these require a device.
 
 The user-supplied portrait was resized from its original 1254×1254 to 512×512 (aspect ratio preserved, no crop, no watermark, no generation) and written to `app/src/main/res/drawable-nodpi/dev_akhil.png`. The original full-resolution file is preserved at `assets/dev_akhil.png`.
 
@@ -126,6 +159,9 @@ To be explicit about the engineering scope — most of the requested runtime beh
 3. `app/src/main/res/values*/strings.xml` (12 locales) — user-facing `Square` → `Comfort`; `app_name` = Comfort.
 4. `app/src/main/res/drawable-nodpi/dev_akhil.png` — new, from the supplied image.
 5. `PreferencesStore.kt` — `KEY_KEEP_PLAYING` default `false` → `true`, so swipe-away continues playback out of the box.
+6. `tools/icon.py` — rewritten to generate every icon resource from the supplied Comfort logo instead of the older green-wave artwork (single source of truth, reproducible with `python3 tools/icon.py`).
+7. `app/src/main/res/mipmap-*/` + `drawable-*/` — `ic_launcher`, `ic_launcher_round`, `ic_launcher_background`, `ic_launcher_foreground`, `ic_app_mark`, `ic_notification`, `ic_launcher_monochrome` regenerated from that logo; `values/colors.xml` `ic_launcher_background` = `#181C1D`.
+8. `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_round.xml` — stale comments (which still described the old `icona.png` / `wave-glow.png` pipeline) corrected; layer structure unchanged.
 
 **Audited, found already correct, left intact**
 - Foreground `MediaLibraryService`, MediaSession, MediaStyle notification, lock-screen controls.
@@ -145,3 +181,20 @@ To be explicit about the engineering scope — most of the requested runtime beh
 4. **No KVM** → even a software emulator with x86_64 system image was out of reach (and the shipped ABIs are ARM-only).
 
 Screenshots were requested as a deliverable. They are **not** in this delivery as captured app screenshots, because producing them would have required running the app, which this environment cannot do. What is delivered instead is the exact source evidence (section 3), plus the user's own supplied reference montage at `assets/dev2.png`.
+
+---
+
+## 7. Delivery status of this rebuild
+
+| Item | Location in this workspace |
+|---|---|
+| Universal release APK (27.4 MB) | `deliverables/Comfort-2.10.4-universal-release.apk` |
+| Per-ABI release APKs | `deliverables/Comfort-2.10.4-arm64-v8a-release.apk`, `Comfort-2.10.4-armeabi-v7a-release.apk` |
+| Android App Bundle (25.1 MB) | `deliverables/Comfort-2.10.4-release.aab` |
+| Universal debug APK | `deliverables/Comfort-2.10.4-universal-debug.apk` |
+| Build logs | `build/logs/assembleDebug.log`, `release.log`, `bundle.log`, `release-splits.log` |
+| This report | `deliverables/QA_REPORT.md` |
+
+**Google Drive:** the build host can read the connected `Comfort` folder but cannot write new bytes into it. The Drive integration only accepts uploads of files already staged in the chat session's storage, and files produced inside this VM are not staged there — every upload attempt was rejected with `HTTP 403: The file key does not belong to this project or session`. Nothing was uploaded and nothing in the Drive folder was modified or overwritten.
+
+To place these builds in Drive, either download them from the workspace paths above and drop them into `Comfort/Final APK`, `Comfort/Final AAB` and `Comfort/QA Reports`, or attach them to a chat message so they can be staged and then written to Drive from here.
