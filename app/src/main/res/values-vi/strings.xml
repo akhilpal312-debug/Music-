@@ -606,7 +606,6 @@
     <string name="recap_partial">Gồm những lượt nghe đã lưu và lịch sử Spotify gần đây. Những lượt nghe sớm hơn hoặc chưa đồng bộ có thể bị thiếu. Số phút chỉ tính trong Comfort.</string>
     <string name="smart_shuffle">Trộn bài thông minh</string>
     <string name="smart_shuffle_unavailable">Hiện chưa dùng được Trộn bài thông minh cho danh sách phát này.</string>
-    <string name="telegram_community">Cộng đồng Telegram</string>
     <string name="login_in_progress">Đang đăng nhập Spotify…</string>
     <string name="login_channel">Đăng nhập</string>
     <string name="queue_now_playing">Đang phát</string>

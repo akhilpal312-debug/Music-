@@ -565,7 +565,6 @@
     <string name="recap_partial">저장된 재생 기록과 최근 Spotify 기록이 포함됩니다. 이전 기록이나 동기화되지 않은 기록은 빠질 수 있습니다. 재생 시간은 Comfort에서만 측정됩니다.</string>
     <string name="smart_shuffle">스마트 셔플</string>
     <string name="smart_shuffle_unavailable">지금은 이 플레이리스트에서 스마트 셔플을 사용할 수 없습니다.</string>
-    <string name="telegram_community">Telegram 커뮤니티</string>
     <string name="login_in_progress">Spotify에 로그인하는 중…</string>
     <string name="login_channel">로그인</string>
     <string name="queue_now_playing">지금 재생 중</string>

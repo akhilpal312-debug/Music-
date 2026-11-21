@@ -612,7 +612,7 @@
     <string name="recap_partial">Includes saved listens and recent Spotify history. Earlier or unsynced listens may be missing. Minutes are measured only in Comfort.</string>
     <string name="smart_shuffle">Smart Shuffle</string>
     <string name="smart_shuffle_unavailable">Smart Shuffle is not available for this playlist right now.</string>
-    <string name="telegram_community">Telegram community</string>
+    <string name="instagram">Instagram</string>
     <string name="login_in_progress">Signing in to Spotify…</string>
     <string name="login_channel">Signing in</string>
     <string name="queue_now_playing">Now playing</string>

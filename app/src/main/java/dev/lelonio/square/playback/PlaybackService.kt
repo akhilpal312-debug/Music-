@@ -8,6 +8,7 @@ import dev.lelonio.square.auth.SpotifyOAuth
 import dev.lelonio.square.auth.TokenStore
 import dev.lelonio.square.data.CatalogTrack
 import dev.lelonio.square.data.PlaybackStore
+import dev.lelonio.square.backend.youtube.YouTubeBackend
 import dev.lelonio.square.backend.spotify.licenseUrl
 import dev.lelonio.square.backend.spotify.toMpd
 import dev.lelonio.square.data.SavedPlayback
@@ -168,6 +169,14 @@ class PlaybackService : MediaLibraryService() {
             if (playbackState == androidx.media3.common.Player.STATE_READY) {
                 maybeTriggerAutoplay(player.currentMediaItem)
             }
+            // The queue ran out with nothing behind it. No change of song is
+            // coming, so the only moment left to keep the music going is this
+            // one; the mark that stops the same song asking twice is dropped
+            // first, because that ask is what emptied the queue.
+            if (playbackState == androidx.media3.common.Player.STATE_ENDED) {
+                lastAutoplayTrackUri = null
+                maybeTriggerAutoplay(player.currentMediaItem)
+            }
         }
     }
 
@@ -285,7 +294,13 @@ class PlaybackService : MediaLibraryService() {
 
         val current = (if (video) null else mediaItem) ?: player.currentMediaItem ?: return
         val currentUri = current.mediaId
-        if (!currentUri.startsWith("spotify:track:")) return
+        // Both catalogues have somewhere to go after the last song: Spotify's
+        // station for a track, YouTube's radio for a song or a video. Only
+        // something with no station at all — a local file, a download — ends
+        // the music here.
+        val youtube = currentUri.startsWith(YouTubeBackend.TRACK_PREFIX) ||
+            currentUri.startsWith(YouTubeBackend.VIDEO_PREFIX)
+        if (!youtube && !currentUri.startsWith("spotify:track:")) return
 
         val currentIdx = player.currentMediaItemIndex
         val totalCount = player.mediaItemCount
@@ -298,18 +313,30 @@ class PlaybackService : MediaLibraryService() {
         if (autoplayInFlight || currentUri == lastAutoplayTrackUri) return
         autoplayInFlight = true
         lastAutoplayTrackUri = currentUri
+        // Appending to a queue that has already finished needs the player
+        // started again: until it is prepared it sits on its last frame of
+        // sound, and the tracks that were meant to carry on never play.
+        val wasEnded = player.playbackState == androidx.media3.common.Player.STATE_ENDED
 
         scope.launch(Dispatchers.IO) {
             try {
-                val id = currentUri.substringAfterLast(':')
-                val stationUri = "spotify:station:track:$id"
-                val stationTrackUris = dev.lelonio.square.data.Catalog.contextTrackUris(stationUri)
-                val catalogTracks = dev.lelonio.square.data.Catalog.tracks(stationTrackUris)
+                val catalogTracks = if (youtube) {
+                    container.youtubeBackend.radio(currentUri)
+                } else {
+                    val id = currentUri.substringAfterLast(':')
+                    val stationUri = "spotify:station:track:$id"
+                    val stationTrackUris = dev.lelonio.square.data.Catalog.contextTrackUris(stationUri)
+                    dev.lelonio.square.data.Catalog.tracks(stationTrackUris)
+                }
                 withContext(Dispatchers.Main) {
                     val currentUris = (0 until player.mediaItemCount)
                         .mapNotNull { player.getMediaItemAt(it).mediaId }
                         .toSet()
                     val newTracks = catalogTracks.filter { it.uri !in currentUris }.take(toAdd)
+                    // Nothing came back, so this song has not had its answer:
+                    // letting the next moment ask again is what keeps one empty
+                    // station reply from ending autoplay for the whole session.
+                    if (newTracks.isEmpty()) lastAutoplayTrackUri = null
                     if (newTracks.isNotEmpty()) {
                         val items = newTracks.map { track ->
                             androidx.media3.common.MediaItem.Builder()
@@ -334,9 +361,14 @@ class PlaybackService : MediaLibraryService() {
                         }
                         android.util.Log.i(TAG, "Autoplay: appending ${items.size} tracks for $currentUri (queue cap: $AUTOPLAY_QUEUE_CAP)")
                         player.addMediaItems(items)
+                        if (wasEnded) {
+                            player.prepare()
+                            player.play()
+                        }
                     }
                 }
             } catch (t: Throwable) {
+                lastAutoplayTrackUri = null
                 android.util.Log.w(TAG, "Autoplay: failed to fetch tracks for $currentUri", t)
             } finally {
                 autoplayInFlight = false

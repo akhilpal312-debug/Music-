@@ -585,7 +585,6 @@
     <string name="recap_partial">Include gli ascolti salvati e la cronologia recente di Spotify. Gli ascolti precedenti o non sincronizzati potrebbero mancare. I minuti sono misurati solo in Comfort.</string>
     <string name="smart_shuffle">Smart Shuffle</string>
     <string name="smart_shuffle_unavailable">Smart Shuffle non è disponibile per questa playlist al momento.</string>
-    <string name="telegram_community">Community Telegram</string>
     <string name="login_in_progress">Accesso a Spotify in corso…</string>
     <string name="login_channel">Accesso</string>
     <string name="queue_now_playing">In riproduzione</string>

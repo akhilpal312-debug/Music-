@@ -603,7 +603,6 @@
     <string name="recap_partial">保存された再生履歴とSpotifyの最近の履歴を表示します。古い履歴や同期されていない再生は含まれない場合があります。再生時間はComfort内で聴いた時間のみです。</string>
     <string name="smart_shuffle">スマートシャッフル</string>
     <string name="smart_shuffle_unavailable">現在、このプレイリストではスマートシャッフルを利用できません。</string>
-    <string name="telegram_community">Telegramコミュニティ</string>
     <string name="login_in_progress">Spotifyにログイン中…</string>
     <string name="login_channel">ログイン中</string>
     <string name="queue_now_playing">再生中</string>
