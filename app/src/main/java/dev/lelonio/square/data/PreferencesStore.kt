@@ -465,6 +465,21 @@ class PreferencesStore(context: Context) {
         prefs.edit().putString(KEY_SKIPPED_UPDATE, value).apply()
     }
 
+    /**
+     * The version the app has already fetched and handed to the installer on
+     * its own.
+     *
+     * One version, like [skippedUpdate]: the system's confirmation is the only
+     * step left, and a cancelled one is an answer. Without this the app would
+     * fetch the same release and put the same dialog up every six hours, which
+     * is exactly the morning nag the automatic flow exists to remove.
+     */
+    fun offeredUpdate(): String? = prefs.getString(KEY_OFFERED_UPDATE, null)
+
+    fun setOfferedUpdate(value: String) {
+        prefs.edit().putString(KEY_OFFERED_UPDATE, value).apply()
+    }
+
     /** The account's country code, saved from the Spotify profile. */
     val userCountry: String?
         get() = prefs.getString(KEY_USER_COUNTRY, null)
@@ -508,6 +523,7 @@ class PreferencesStore(context: Context) {
         const val KEY_PROFILE_ART = "profile_art"
         const val KEY_LAST_UPDATE_CHECK = "last_update_check"
         const val KEY_SKIPPED_UPDATE = "skipped_update"
+        const val KEY_OFFERED_UPDATE = "offered_update"
         const val KEY_USER_COUNTRY = "user_country"
     }
 }

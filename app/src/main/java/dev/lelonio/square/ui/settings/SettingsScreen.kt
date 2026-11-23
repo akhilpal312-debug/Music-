@@ -1879,12 +1879,11 @@ private fun YouTubeQualitySection() {
 }
 
 /**
- * Checking for, and installing, a new version.
+ * Checking for, and installing, a new version by hand.
  *
- * A button rather than something that happens on its own: the check is a
- * request to GitHub carrying the user's address, made for the app's benefit
- * rather than theirs, and nothing here needs it badly enough to make it
- * automatic.
+ * The app already does this on its own — see `UpdatePrompt` — so this is not
+ * the way updates arrive; it is the way to ask now rather than wait, and the
+ * way to retry a release whose install was turned down.
  */
 @Composable
 private fun UpdateRow(onNeedsPermission: (Updater.State.Available) -> Unit) {
@@ -1902,6 +1901,9 @@ private fun UpdateRow(onNeedsPermission: (Updater.State.Available) -> Unit) {
         is Updater.State.Available -> stringResource(R.string.update_available, current.version)
         is Updater.State.Downloading ->
             current.progress?.let { "${(it * 100).toInt()}%" } ?: stringResource(R.string.update_downloading)
+        // Fetched and waiting for the app to be in front to ask the system to
+        // install it; there is nothing the list can add to that.
+        is Updater.State.Ready -> stringResource(R.string.update_installing)
         is Updater.State.Installing -> stringResource(R.string.update_installing)
         is Updater.State.Failed ->
             if (current.reason == Updater.REASON_PERMISSION) stringResource(R.string.update_needs_permission)
@@ -1910,6 +1912,7 @@ private fun UpdateRow(onNeedsPermission: (Updater.State.Available) -> Unit) {
 
     val busy = state is Updater.State.Checking ||
         state is Updater.State.Downloading ||
+        state is Updater.State.Ready ||
         state is Updater.State.Installing
 
     Row(

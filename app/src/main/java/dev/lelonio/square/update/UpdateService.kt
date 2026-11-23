@@ -50,7 +50,7 @@ class UpdateService : Service() {
 
         val updater = (applicationContext as SquareApplication).updater
         scope.launch {
-            updater.fetchAndInstall(url, version, bytes) { progress ->
+            updater.fetch(url, version, bytes) { progress ->
                 notify(version, progress)
             }
             stopSelf()

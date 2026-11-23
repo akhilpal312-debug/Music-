@@ -4437,15 +4437,28 @@ private fun Player.cycleRepeatMode() {
  * was actually playing.
  */
 /**
- * Asks GitHub for a newer release when the app opens, and says so if there is one.
+ * Brings a new release in on its own.
  *
- * This used to be a button in the settings and nothing else, on the grounds
- * that the check is a request made for the app's benefit rather than the
- * user's. The trouble with that is who it leaves behind: an app no store can
- * reach, whose owner never opens the settings, stays on the version it was
- * installed with forever, security fixes and all. So it runs on its own now,
- * with the cost kept small: at most one request every six hours, and one
- * dialog per release, ever.
+ * This used to ask: a sheet over the page, once per release, with the notes
+ * and two buttons. The asking was the problem. An app no store can reach has
+ * to keep itself current, and the people who need that most are the ones least
+ * willing to press a button every morning for it.
+ *
+ * So there is nothing to press. At most once every six hours the release is
+ * read; if it is newer the APK is fetched by
+ * [dev.lelonio.square.update.UpdateService] and handed to Android's installer,
+ * which puts up the one dialog no app can skip: the confirmation. That tap is
+ * the limit of what a sideloaded app may do — only a system app installs
+ * silently — so this comes as close to "it just happens" as the platform
+ * allows.
+ *
+ * One attempt per release, remembered in the preferences. A cancelled
+ * confirmation is an answer, and asking again tomorrow morning is exactly what
+ * made the sheet a nuisance.
+ *
+ * The sheet survives for the one thing the app cannot do by itself: without
+ * permission to install packages there is nothing it can hand over, so it asks
+ * for that once and no more.
  *
  * Everything that can go wrong is silence. The check is not something the user
  * asked for, so a failure is not something to tell them about.
@@ -4460,7 +4473,6 @@ private fun UpdatePrompt(
         (context.applicationContext as dev.lelonio.square.SquareApplication).updater
     }
     val prefs = remember(context) { dev.lelonio.square.data.PreferencesStore(context) }
-    val scope = rememberCoroutineScope()
     val state by updater.state.collectAsStateWithLifecycle()
 
     // Each time the app comes to the front, not only when it is launched. A
@@ -4477,19 +4489,38 @@ private fun UpdatePrompt(
             // one shape of this that would be a nuisance.
             prefs.setLastUpdateCheck(now)
             runCatching { updater.check() }
+
+            val found = updater.state.value as? Updater.State.Available
+                ?: return@repeatOnLifecycle
+            // Once per release. Without this a cancelled confirmation means a
+            // fresh download and a fresh dialog every six hours.
+            if (found.version == prefs.offeredUpdate()) return@repeatOnLifecycle
+            // Nothing can be installed without the permission; the sheet
+            // below asks for it, and comes back here once it is granted.
+            if (!updater.canInstall()) return@repeatOnLifecycle
+            prefs.setOfferedUpdate(found.version)
+            updater.install(found)
         }
     }
 
-    // Held while the download runs: the state moves on from Available the
-    // moment the fetch starts, and the sheet has to stay to show it happening.
-    var offered by remember { mutableStateOf<Updater.State.Available?>(null) }
-    var dismissed by remember { mutableStateOf(false) }
-    (state as? Updater.State.Available)?.let { found ->
-        // Already offered, and turned down. The version is remembered rather
-        // than a flag, so the next release is news again.
-        if (found.version != prefs.skippedUpdate()) offered = found
+    // The download runs in a service and can finish with the app behind
+    // something else. The installer's confirmation is an activity, and a
+    // background app may not open one, so the fetched APK waits for the app to
+    // be in front rather than the dialog being dropped.
+    val ready = state as? Updater.State.Ready
+    LaunchedEffect(ready) {
+        if (ready == null) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            updater.commit()
+        }
     }
-    val available = offered ?: return
+
+    // What is left for the sheet: this app has not been allowed to install
+    // packages, so there is nothing it can hand to the installer.
+    var dismissed by remember { mutableStateOf(false) }
+    val available = (state as? Updater.State.Available)?.takeIf {
+        !updater.canInstall() && it.version != prefs.skippedUpdate()
+    } ?: return
 
     // Held across the trip to the system settings, so granting the permission
     // continues the install instead of dropping it.
@@ -4518,6 +4549,7 @@ private fun UpdatePrompt(
         downloading = downloading,
         onInstall = {
             if (updater.canInstall()) {
+                prefs.setOfferedUpdate(available.version)
                 updater.install(available)
             } else {
                 pending = available

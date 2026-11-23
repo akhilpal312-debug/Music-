@@ -67,6 +67,15 @@ class Updater(context: Context) {
         ) : State
         /** 0f..1f, or null while the server sends no length to measure against. */
         data class Downloading(val progress: Float?) : State
+        /**
+         * The new version is on disk and the installer has not been called yet.
+         *
+         * Kept as a state rather than committed straight from the service: the
+         * confirmation Android puts up is an activity, and a background app
+         * may not start one. The app commits this the moment it is actually in
+         * front, so the dialog appears instead of being dropped on the floor.
+         */
+        data class Ready(val update: Available) : State
         /** Handed to the system installer; the dialog is Android's, not ours. */
         data object Installing : State
         data class Failed(val reason: String) : State
@@ -192,7 +201,7 @@ class Updater(context: Context) {
      * @param onProgress told as often as the bytes arrive, so the notification
      *   can say how far along it is; null while the server sends no length.
      */
-    suspend fun fetchAndInstall(
+    suspend fun fetch(
         url: String,
         version: String,
         bytes: Long,
@@ -202,7 +211,7 @@ class Updater(context: Context) {
         _state.value = State.Downloading(null)
         onProgress(null)
 
-        val apk = runCatching {
+        runCatching {
             withContext(Dispatchers.IO) { download(update, onProgress) }
         }.getOrElse {
             android.util.Log.w(TAG, "download failed: $it")
@@ -210,6 +219,30 @@ class Updater(context: Context) {
             return
         }
 
+        _state.value = State.Ready(update)
+    }
+
+    /**
+     * Hands the fetched APK to the system installer.
+     *
+     * Called by the app once it is in front, because the confirmation Android
+     * puts up is an activity of its own and a background app cannot open one.
+     * Nothing is asked of the listener here: the dialog is the only step left,
+     * and it is the platform's, not ours.
+     */
+    suspend fun commit() {
+        val ready = _state.value as? State.Ready ?: return
+        if (!canInstall()) {
+            _state.value = State.Failed(REASON_PERMISSION)
+            return
+        }
+        val apk = File(app.cacheDir, UPDATE_APK)
+        if (!apk.exists()) {
+            // The system reclaimed the cache between the download and now.
+            // Offered again rather than left with nothing to install.
+            _state.value = ready.update
+            return
+        }
         runCatching { withContext(Dispatchers.IO) { commit(apk) } }
             .onSuccess { _state.value = State.Installing }
             .onFailure {
@@ -223,7 +256,7 @@ class Updater(context: Context) {
         // cacheDir, not filesDir: once the installer has read it the file is
         // dead weight, and twenty megabytes is worth letting the system reclaim
         // if the install never happens.
-        val target = File(app.cacheDir, "update.apk")
+        val target = File(app.cacheDir, UPDATE_APK)
         target.delete()
         lastReported = -1
 
@@ -325,6 +358,9 @@ class Updater(context: Context) {
         private const val TAG = "Updater"
 
         const val REPO = "akhilpal312-debug/Music-"
+
+        /** Where the fetched APK waits until the app is in front to install it. */
+        private const val UPDATE_APK = "update.apk"
 
         /** Told apart from a network failure so the UI can offer the way out. */
         const val REASON_PERMISSION = "permission"

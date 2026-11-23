@@ -231,3 +231,56 @@ No device or emulator here: the new wordmark has not been seen on a screen. A
 serif's capitals sit at 0.72 em, so the text block is taller per `height` than the
 drawn letters were and the home header may sit a few dp differently — that is the
 thing to eyeball after installing.
+
+## 10. Comfort 0.0.3 — updates install themselves
+
+### What changed
+
+The updater no longer asks. Before, every six hours at most, a sheet came up
+over whatever the listener was doing with the release notes and two buttons —
+the thing that made the app feel like it wanted attention every morning.
+
+Now, on the same six-hour floor:
+
+1. `UpdatePrompt` (`ui/SquareApp.kt`) checks GitHub quietly, with no sheet.
+2. If the release is newer, the APK is fetched by `UpdateService` in the
+   background, with only the low-importance progress notification in the shade.
+3. `Updater.fetch` leaves it at the new `State.Ready` instead of committing
+   straight away. When the app is in front (`Lifecycle.State.RESUMED`),
+   `Updater.commit()` hands it to `PackageInstaller`, so Android's own
+   confirmation appears. That activity cannot be opened from the background, so
+   a download that finishes behind another app waits rather than vanishing.
+
+The only step left for the listener is Android's confirmation dialog, and that
+one is not the app's to skip: only a system app (or a device owner) installs a
+package without a confirmation, and Comfort is sideloaded from a GitHub release.
+Getting to zero taps would mean shipping it as a system app, which is not
+something a release APK can do.
+
+One attempt per release is remembered (`PreferencesStore.offeredUpdate`). A
+cancelled confirmation therefore does not come back tomorrow morning — the next
+release is the next question. The sheet survives only for the case the app
+cannot solve alone: no "install unknown apps" permission, where it asks once
+and, once granted, carries on with the install it already started.
+
+The manual "Check for updates" row in Settings → About is unchanged and still
+works for asking now, or for retrying an install that was turned down.
+
+### Verified here
+
+- `scripts/build.sh :app:testDebugUnitTest :app:assembleRelease -PdisableAbiSplits=true`
+  — BUILD SUCCESSFUL in 5m 14s; 15 test suites pass.
+- `aapt2 dump badging app/build/outputs/apk/release/app-release.apk`: package
+  `dev.lelonio.square`, versionCode 72, versionName 0.0.3, minSdk 26.
+
+### Not verified
+
+No device or emulator here, so the flow has not been run end to end: the
+background fetch, the `Ready → commit` hand-off and Android's confirmation were
+compiled and reasoned about, not exercised. The behaviour to check on a phone is
+that a new release downloads with no prompt, and that opening the app then shows
+the system's "Update app?" dialog once.
+
+This build is debug-signed locally (`6f27533a…de26e`) and cannot install over the
+published 0.0.1 (`da2e2d92…1eb2b`). The installable 0.0.3 still has to come from
+the repository's release workflow, which needs the four signing secrets.
