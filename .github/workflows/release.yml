@@ -118,7 +118,10 @@ jobs:
             echo "::error::$notes is missing or empty"
             exit 1
           fi
-          if ! git rev-parse --verify --quiet "refs/tags/$tag" > /dev/null; then
+          # Asked of the remote, not of the checkout: this job fetches one
+          # commit and no tags, so the local answer was "no tag" for a tag that
+          # existed, and pushing it again failed the run with "already exists".
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null 2>&1; then
             git tag "$tag"
             git push origin "$tag"
           fi
