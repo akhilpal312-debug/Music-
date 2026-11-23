@@ -3,5 +3,5 @@
      installer can reach them and nothing else in the cache. -->
 <paths>
     <cache-path name="reports" path="reports/" />
-    <cache-path name="updates" path="update.apk" />
+    <cache-path name="updates" path="updates/" />
 </paths>

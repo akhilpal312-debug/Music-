@@ -60,6 +60,15 @@ class Updater(context: Context) {
         .retryOnConnectionFailure(true)
         .build()
 
+    /** Where the fetched APK waits, and the half files that lead to it. */
+    private fun dir(): File = File(app.cacheDir, UPDATE_DIR).apply { mkdirs() }
+
+    private fun apkFile(): File = File(dir(), UPDATE_APK)
+
+    private fun partFile(): File = File(dir(), PART_APK)
+
+    private fun partSourceFile(): File = File(dir(), PART_SOURCE)
+
     /** The last whole percent handed to the notification; see [download]. */
     private var lastReported = -1
 
@@ -288,7 +297,7 @@ class Updater(context: Context) {
             _state.value = State.Failed(REASON_PERMISSION)
             return
         }
-        val apk = File(app.cacheDir, UPDATE_APK)
+        val apk = apkFile()
         if (!apk.exists()) {
             // The system reclaimed the cache between the download and now.
             // Offered again rather than left with nothing to install.
@@ -362,11 +371,11 @@ class Updater(context: Context) {
      * ninety percent should cost the last ten, not the whole thing again.
      */
     private fun download(update: State.Available, onProgress: (Float?) -> Unit): File {
-        val part = File(app.cacheDir, PART_APK)
+        val part = partFile()
         // What the half file belongs to. A part file continued for a different
         // release would end at the wrong length at best and be a mixture of two
         // downloads at worst, so a part that is not this release's starts over.
-        val source = File(app.cacheDir, PART_SOURCE)
+        val source = partSourceFile()
         val wanted = "${update.version}|${update.url}"
         if (source.readTextOrNull() != wanted) {
             part.delete()
@@ -428,7 +437,7 @@ class Updater(context: Context) {
             }
         }
 
-        val target = File(app.cacheDir, UPDATE_APK)
+        val target = apkFile()
         target.delete()
         if (!part.renameTo(target)) {
             part.copyTo(target, overwrite = true)
@@ -469,7 +478,7 @@ class Updater(context: Context) {
      * same checks a fresh download would.
      */
     private fun cachedApk(version: String): File? {
-        val apk = File(app.cacheDir, UPDATE_APK)
+        val apk = apkFile()
         if (!apk.exists()) return null
         val update = State.Available(version, "", apk.length())
         if (verify(apk, update) != null) {
@@ -487,7 +496,7 @@ class Updater(context: Context) {
      * Android's confirmation at every launch, without twenty megabytes being
      * fetched again to reach the same dialog.
      */
-    fun hasCachedApk(): Boolean = File(app.cacheDir, UPDATE_APK).exists()
+    fun hasCachedApk(): Boolean = apkFile().exists()
 
     /** Whether the user has allowed this app to install packages at all. */
     fun canInstall(): Boolean =
@@ -531,9 +540,9 @@ class Updater(context: Context) {
 
     /** Deleting the fetched APK: it has been installed, or it is not wanted. */
     fun clearDownload() {
-        File(app.cacheDir, UPDATE_APK).delete()
-        File(app.cacheDir, PART_APK).delete()
-        File(app.cacheDir, PART_SOURCE).delete()
+        apkFile().delete()
+        partFile().delete()
+        partSourceFile().delete()
     }
 
     private fun installedVersion(): String = runCatching {
@@ -563,6 +572,16 @@ class Updater(context: Context) {
 
         /** Where the fetched APK waits until the app is in front to install it. */
         private const val UPDATE_APK = "update.apk"
+
+        /**
+         * The folder it waits in.
+         *
+         * Its own directory rather than the cache root, because it is the one
+         * folder named in the FileProvider's paths: Android's installer reads
+         * the APK through a content URI, and a root that is a single file is a
+         * narrower thing than the provider can express reliably.
+         */
+        private const val UPDATE_DIR = "updates"
 
         /** A download in progress, kept so a retry continues instead of restarting. */
         private const val PART_APK = "update.apk.part"
