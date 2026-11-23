@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only the reports folder, so the share sheet can reach the report and nothing else in the cache. -->
+<!-- The reports folder and the fetched update, so the share sheet and Android's
+     installer can reach them and nothing else in the cache. -->
 <paths>
     <cache-path name="reports" path="reports/" />
+    <cache-path name="updates" path="update.apk" />
 </paths>

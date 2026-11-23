@@ -72,6 +72,15 @@ fun UpdateSheet(
     /** 0f..1f while fetching, null when the length is unknown; absent at rest. */
     progress: Float?,
     downloading: Boolean,
+    /**
+     * Why the last attempt did not end in an installed app, or null.
+     *
+     * Said in the sheet rather than left to the log: a download that stopped,
+     * a file signed with another key and a refusal by the installer all used to
+     * look the same from here — the sheet simply came back — so the only thing
+     * left to do was press Update again and watch it do the same.
+     */
+    error: String?,
     onInstall: () -> Unit,
     onDismiss: () -> Unit,
     backdrop: Backdrop,
@@ -117,6 +126,16 @@ fun UpdateSheet(
                                 // buttons off the screen.
                                 .heightIn(max = 240.dp)
                                 .verticalScroll(rememberScrollState()),
+                        )
+                    }
+
+                    error?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
                         )
                     }
 

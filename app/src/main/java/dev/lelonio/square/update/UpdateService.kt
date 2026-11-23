@@ -35,6 +35,9 @@ class UpdateService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var running = false
 
+    /** What the notification last said, so a second start does not blank it. */
+    private var progress: Float? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -42,11 +45,19 @@ class UpdateService : Service() {
         val version = intent?.getStringExtra(EXTRA_VERSION).orEmpty()
         val bytes = intent?.getLongExtra(EXTRA_BYTES, 0L) ?: 0L
 
-        if (url.isNullOrEmpty() || running) return START_NOT_STICKY
-        running = true
+        if (url.isNullOrEmpty()) return START_NOT_STICKY
 
+        // The notification before anything else, and even for a second start:
+        // `startForegroundService` obliges the service to show one within a few
+        // seconds, and returning early without it was a crash rather than a
+        // no-op.
         channel()
-        startForeground(NOTIFICATION_ID, notification(version, null))
+        startForeground(NOTIFICATION_ID, notification(version, progress))
+
+        // A second start while the first download is running has nothing to do;
+        // the one in flight finishes both.
+        if (running) return START_NOT_STICKY
+        running = true
 
         val updater = (applicationContext as SquareApplication).updater
         scope.launch {
@@ -64,6 +75,7 @@ class UpdateService : Service() {
     }
 
     private fun notify(version: String, progress: Float?) {
+        this.progress = progress
         manager().notify(NOTIFICATION_ID, notification(version, progress))
     }
 

@@ -4488,6 +4488,17 @@ private fun UpdatePrompt(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            // Back from the installer: either what is running is the version
+            // that was offered, and the update is over, or the confirmation was
+            // put away and the release is still waiting with its APK on disk.
+            //
+            // Noticed before the state is moved on, because the two answers
+            // want different things: a phone that has just been shown the
+            // dialog must not be shown it again the instant it comes back, and
+            // one that has simply opened the app should be taken as far as the
+            // dialog without being asked twice.
+            val fromInstaller = updater.state.value is Updater.State.Installing
+            updater.reconcile()
             val now = System.currentTimeMillis()
             if (now - prefs.lastUpdateCheck() >= UPDATE_CHECK_INTERVAL_MS) {
                 // Recorded before the call rather than after it: a phone with no
@@ -4524,7 +4535,10 @@ private fun UpdatePrompt(
             // is usually unnecessary by the time it can be pressed. Once per
             // release, and only with permission: without it there is nothing to
             // hand the installer, and the sheet asks for it instead.
-            if (!updater.canInstall() || found.version == prefs.offeredUpdate()) {
+            if (fromInstaller) return@repeatOnLifecycle
+            if (!updater.canInstall() ||
+                (!updater.hasCachedApk() && found.version == prefs.offeredUpdate())
+            ) {
                 return@repeatOnLifecycle
             }
             prefs.setOfferedUpdate(found.version)
@@ -4573,6 +4587,19 @@ private fun UpdatePrompt(
         notes = available.notes,
         progress = (state as? Updater.State.Downloading)?.progress,
         downloading = downloading,
+        // Why the last try did not end in an installed app, in words rather
+        // than in the log, so pressing Update again is an informed choice.
+        error = (state as? Updater.State.Failed)?.reason?.let { reason ->
+            when (reason) {
+                Updater.REASON_PERMISSION -> stringResource(R.string.update_needs_permission_long)
+                Updater.REASON_SIGNATURE -> stringResource(R.string.update_failed_signature)
+                Updater.REASON_PACKAGE,
+                Updater.REASON_VERSION,
+                -> stringResource(R.string.update_failed_wrong_file)
+                Updater.REASON_INSTALL -> stringResource(R.string.update_failed_install)
+                else -> stringResource(R.string.update_failed_download)
+            }
+        },
         onInstall = {
             if (updater.canInstall()) {
                 prefs.setOfferedUpdate(available.version)

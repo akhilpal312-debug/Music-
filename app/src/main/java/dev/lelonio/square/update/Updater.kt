@@ -1,12 +1,15 @@
 package dev.lelonio.square.update
 
 import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import dev.lelonio.square.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +23,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
+import java.security.MessageDigest
 
 /**
  * Updates the app from its own GitHub releases.
@@ -28,17 +33,32 @@ import java.io.File
  * forbid it — so there is nothing to deliver an update but the app itself. The
  * releases page is already the distribution channel; this reads it.
  *
- * Nothing here has to verify what it downloads. Android refuses an update
- * signed with a different key than the installed copy, so an APK that is not
- * the one built with the project's keystore simply fails to install. A hash
- * check on top would look reassuring and add nothing the platform does not
- * already enforce.
+ * Nothing here has to verify what it downloads against a hash published
+ * somewhere else. Android refuses an update signed with a different key than
+ * the installed copy, so an APK that is not the one built with the project's
+ * keystore simply fails to install. What it does check is that the file is the
+ * package and the key it claims to be, so a broken or half-fetched download is
+ * said out loud instead of being handed to the installer to fail silently.
  */
 class Updater(context: Context) {
 
     private val app = context.applicationContext
     private val json = Json { ignoreUnknownKeys = true }
-    private val client = OkHttpClient()
+
+    /**
+     * Read and write timeouts long enough for a phone connection.
+     *
+     * OkHttp's defaults are ten seconds, which is a stall, not a slow network:
+     * a release is fetched over mobile data on the other side of the world, and
+     * a timeout in the middle of it is exactly the "downloaded a little, asked
+     * again" this app used to show.
+     */
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
 
     /** The last whole percent handed to the notification; see [download]. */
     private var lastReported = -1
@@ -78,6 +98,14 @@ class Updater(context: Context) {
         data class Ready(val update: Available) : State
         /** Handed to the system installer; the dialog is Android's, not ours. */
         data object Installing : State
+        /**
+         * Something did not work, and [reason] is which of the constants below.
+         *
+         * Said on the sheet rather than kept to the log. The old silence is why
+         * a signature mismatch and a dropped connection looked identical from
+         * outside: the sheet simply came back, so pressing Update again was the
+         * only thing to try and it did the same thing again.
+         */
         data class Failed(val reason: String) : State
     }
 
@@ -89,18 +117,22 @@ class Updater(context: Context) {
      * phone, and only the builds published here are.
      *
      * Unauthenticated, which allows sixty requests an hour per address — far
-     * more than the six-hourly check at launch can spend.
+     * more than the ten-minute check can spend.
      */
     suspend fun check() {
         _state.value = State.Checking
         val result = runCatching { withContext(Dispatchers.IO) { latestRelease() } }
             .getOrElse {
                 android.util.Log.w(TAG, "check failed: $it")
-                _state.value = State.Failed(it.message ?: "network")
+                _state.value = State.Failed(REASON_NETWORK)
                 return
             }
 
         if (result == null || !isNewer(result.version, BuildConfig.VERSION_NAME)) {
+            // Nothing to install, so whatever a previous attempt left behind is
+            // dead weight: twenty megabytes in a cache nobody will look at
+            // again.
+            clearDownload()
             _state.value = State.UpToDate
             return
         }
@@ -127,6 +159,8 @@ class Updater(context: Context) {
             return update
         }
         install(update)
+        // Already on disk from an earlier attempt: nothing to wait for.
+        if (_state.value is State.Ready) commit()
         return null
     }
 
@@ -173,17 +207,26 @@ class Updater(context: Context) {
     }
 
     /**
-     * Downloads the APK and hands it to the system installer.
+     * Starts bringing the update in: the fetch if there is one to do, the
+     * installer if the APK is already here.
      *
-     * The confirmation dialog is Android's and cannot be skipped: only a system
-     * app installs silently. That is the right outcome — an app that could
-     * replace itself unattended is one the user has to trust rather more than
-     * this one asks to be trusted.
+     * The APK on disk is what makes the difference. Every press of Update used
+     * to start the download from zero, so a phone whose download had finished
+     * but whose install had not gone in spent twenty megabytes again to reach
+     * the same place — which reads, exactly, as "it downloads and then asks me
+     * again".
      */
     fun install(update: State.Available) {
+        // A second press while the first is still running is a tap, not an
+        // instruction.
+        if (_state.value is State.Downloading || _state.value is State.Installing) return
         lastOffered = update
         if (!canInstall()) {
             _state.value = State.Failed(REASON_PERMISSION)
+            return
+        }
+        if (cachedApk(update.version) != null) {
+            _state.value = State.Ready(update)
             return
         }
         // Handed to a service rather than done here.
@@ -211,14 +254,23 @@ class Updater(context: Context) {
         _state.value = State.Downloading(null)
         onProgress(null)
 
-        runCatching {
+        val file = runCatching {
             withContext(Dispatchers.IO) { download(update, onProgress) }
         }.getOrElse {
             android.util.Log.w(TAG, "download failed: $it")
-            _state.value = State.Failed(it.message ?: "download")
+            _state.value = State.Failed(REASON_NETWORK)
             return
         }
 
+        // Checked before the installer sees it, so a half file or an APK from
+        // somewhere else is named here rather than being refused by Android
+        // with a dialog that says nothing.
+        val problem = verify(file, update)
+        if (problem != null) {
+            file.delete()
+            _state.value = State.Failed(problem)
+            return
+        }
         _state.value = State.Ready(update)
     }
 
@@ -243,59 +295,43 @@ class Updater(context: Context) {
             _state.value = ready.update
             return
         }
-        runCatching { withContext(Dispatchers.IO) { commit(apk) } }
+        runCatching { withContext(Dispatchers.IO) { handOver(apk) } }
             .onSuccess { _state.value = State.Installing }
             .onFailure {
                 android.util.Log.w(TAG, "install failed: $it")
-                apk.delete()
-                _state.value = State.Failed(it.message ?: "install")
+                _state.value = State.Failed(REASON_INSTALL)
             }
     }
 
-    private fun download(update: State.Available, onProgress: (Float?) -> Unit): File {
-        // cacheDir, not filesDir: once the installer has read it the file is
-        // dead weight, and twenty megabytes is worth letting the system reclaim
-        // if the install never happens.
-        val target = File(app.cacheDir, UPDATE_APK)
-        target.delete()
-        lastReported = -1
-
-        val request = Request.Builder().url(update.url).build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("HTTP ${response.code}")
-            val body = response.body ?: error("empty body")
-            val total = body.contentLength().takeIf { it > 0 } ?: update.bytes
-            var written = 0L
-
-            body.byteStream().use { input ->
-                target.outputStream().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        output.write(buffer, 0, read)
-                        written += read
-                        if (total > 0) {
-                            val progress = written.toFloat() / total
-                            _state.value = State.Downloading(progress)
-                            // Rounded to a percent before it is reported: a
-                            // notification redrawn on every sixty-fourth
-                            // kilobyte is three hundred redraws for a number
-                            // that changed a hundred times.
-                            val step = (progress * 100).toInt()
-                            if (step != lastReported) {
-                                lastReported = step
-                                onProgress(progress)
-                            }
-                        }
-                    }
-                }
+    /**
+     * Opens the system installer on the fetched file.
+     *
+     * An ordinary view intent on an `application/vnd.android.package-archive`
+     * URI, which is how every app that lives outside a store installs itself.
+     * It went through [PackageInstaller] before, and that is the more correct
+     * API — but it reports back by broadcast, the dialog only appears when that
+     * broadcast is handled, and a session that failed at any point in between
+     * left nothing on screen at all. The intent always has somewhere to land,
+     * and its refusals are Android's own words rather than silence.
+     */
+    private fun handOver(apk: File) {
+        val uri: Uri = FileProvider.getUriForFile(app, "${app.packageName}.reports", apk)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { app.startActivity(intent) }
+            .getOrElse { thrown ->
+                if (thrown !is ActivityNotFoundException) throw thrown
+                // No file manager on the phone accepts an APK view: fall back to
+                // the session API, which needs nothing installed to show its
+                // dialog.
+                commitSession(apk)
             }
-        }
-        return target
     }
 
-    private fun commit(apk: File) {
+    /** The [PackageInstaller] route, used only when no installer activity resolves. */
+    private fun commitSession(apk: File) {
         val installer = app.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(
             PackageInstaller.SessionParams.MODE_FULL_INSTALL,
@@ -316,8 +352,142 @@ class Updater(context: Context) {
                 ).intentSender,
             )
         }
-        apk.delete()
     }
+
+    /**
+     * Fetches the APK, continuing a file a previous attempt left half done.
+     *
+     * The `Range` header is what makes a retry cheaper than the first attempt
+     * rather than identical to it: a twenty-megabyte download that dies at
+     * ninety percent should cost the last ten, not the whole thing again.
+     */
+    private fun download(update: State.Available, onProgress: (Float?) -> Unit): File {
+        val part = File(app.cacheDir, PART_APK)
+        // What the half file belongs to. A part file continued for a different
+        // release would end at the wrong length at best and be a mixture of two
+        // downloads at worst, so a part that is not this release's starts over.
+        val source = File(app.cacheDir, PART_SOURCE)
+        val wanted = "${update.version}|${update.url}"
+        if (source.readTextOrNull() != wanted) {
+            part.delete()
+            runCatching { source.writeText(wanted) }
+        }
+        // Longer than the release is a stale file from another release.
+        if (update.bytes > 0 && part.length() > update.bytes) part.delete()
+        val already = part.length()
+        lastReported = -1
+
+        val request = Request.Builder()
+            .url(update.url)
+            .apply { if (already > 0) header("Range", "bytes=$already-") }
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) error("HTTP ${response.code}")
+            val body = response.body ?: error("empty body")
+            // 206 is the server agreeing to continue; anything else means the
+            // whole file, so what is on disk is thrown away rather than
+            // appended to.
+            val resuming = response.code == 206 && already > 0
+            if (!resuming) part.delete()
+            var written = if (resuming) part.length() else 0L
+            val remaining = body.contentLength()
+            val total = when {
+                remaining > 0 -> written + remaining
+                update.bytes > 0 -> update.bytes
+                else -> 0L
+            }
+
+            body.byteStream().use { input ->
+                FileOutputStream(part, resuming).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        output.write(buffer, 0, read)
+                        written += read
+                        if (total > 0) {
+                            val progress = (written.toFloat() / total).coerceIn(0f, 1f)
+                            _state.value = State.Downloading(progress)
+                            // Rounded to a percent before it is reported: a
+                            // notification redrawn on every sixty-fourth
+                            // kilobyte is three hundred redraws for a number
+                            // that changed a hundred times.
+                            val step = (progress * 100).toInt()
+                            if (step != lastReported) {
+                                lastReported = step
+                                onProgress(progress)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (total > 0 && part.length() != total) {
+                error("incomplete: ${part.length()} of $total bytes")
+            }
+        }
+
+        val target = File(app.cacheDir, UPDATE_APK)
+        target.delete()
+        if (!part.renameTo(target)) {
+            part.copyTo(target, overwrite = true)
+            part.delete()
+        }
+        return target
+    }
+
+    /**
+     * What is wrong with [file], or null when it is what it should be.
+     *
+     * The signature is compared with the installed app's rather than with a
+     * hash kept in the sources: the platform will refuse a different key
+     * anyway, and the useful thing to say beforehand is that this file is not
+     * signed by the key this app was installed with.
+     */
+    private fun verify(file: File, update: State.Available): String? {
+        if (!file.exists() || file.length() == 0L) return REASON_NETWORK
+        if (update.bytes > 0 && file.length() != update.bytes) return REASON_NETWORK
+
+        val archive = runCatching {
+            app.packageManager.getPackageArchiveInfo(file.absolutePath, signingFlags())
+        }.getOrNull() ?: return REASON_PACKAGE
+
+        if (archive.packageName != app.packageName) return REASON_PACKAGE
+        if (archive.versionName != update.version) return REASON_VERSION
+
+        val theirs = certificates(archive)
+        val ours = runCatching {
+            certificates(app.packageManager.getPackageInfo(app.packageName, signingFlags()))
+        }.getOrNull().orEmpty()
+        if (ours.isNotEmpty() && theirs != ours) return REASON_SIGNATURE
+        return null
+    }
+
+    /**
+     * The APK on disk, if it is the release being offered and it passes the
+     * same checks a fresh download would.
+     */
+    private fun cachedApk(version: String): File? {
+        val apk = File(app.cacheDir, UPDATE_APK)
+        if (!apk.exists()) return null
+        val update = State.Available(version, "", apk.length())
+        if (verify(apk, update) != null) {
+            apk.delete()
+            return null
+        }
+        return apk
+    }
+
+    /**
+     * Whether a fetched APK is waiting to be installed.
+     *
+     * The sheet asks this before starting a fetch it has already done: an
+     * update that is downloaded but not yet installed is opened straight at
+     * Android's confirmation at every launch, without twenty megabytes being
+     * fetched again to reach the same dialog.
+     */
+    fun hasCachedApk(): Boolean = File(app.cacheDir, UPDATE_APK).exists()
 
     /** Whether the user has allowed this app to install packages at all. */
     fun canInstall(): Boolean =
@@ -338,6 +508,38 @@ class Updater(context: Context) {
         _state.value = State.Idle
     }
 
+    /**
+     * After a trip to the installer: done, or still waiting.
+     *
+     * Nothing moves the state off [State.Installing] on the intent route — the
+     * installer's answer never comes back to us — so the app asks itself the
+     * only question that matters when it comes to the front again: is the
+     * version running the one that was offered? If it is, the update is over
+     * and the sheet must not come back. If it is not, the confirmation was put
+     * away, and the release is still waiting with its APK already on disk.
+     */
+    fun reconcile() {
+        if (_state.value !is State.Installing) return
+        val offered = lastOffered
+        if (offered != null && !isNewer(offered.version, installedVersion())) {
+            clearDownload()
+            _state.value = State.Idle
+            return
+        }
+        _state.value = offered ?: State.Idle
+    }
+
+    /** Deleting the fetched APK: it has been installed, or it is not wanted. */
+    fun clearDownload() {
+        File(app.cacheDir, UPDATE_APK).delete()
+        File(app.cacheDir, PART_APK).delete()
+        File(app.cacheDir, PART_SOURCE).delete()
+    }
+
+    private fun installedVersion(): String = runCatching {
+        app.packageManager.getPackageInfo(app.packageName, 0).versionName
+    }.getOrNull().orEmpty()
+
     /** What was last sent to the installer, to offer again if it did not go in. */
     private var lastOffered: State.Available? = null
 
@@ -346,8 +548,8 @@ class Updater(context: Context) {
      * refused.
      *
      * Offered again rather than left at [State.Installing]. Nothing else moves
-     * the state on from there, so a dialog cancelled by mistake hid the update
-     * until the next release came out (#151).
+     * the state on from there on the session route, so a dialog cancelled by
+     * mistake hid the update until the next release came out (#151).
      */
     fun installAbandoned() {
         if (_state.value !is State.Installing) return
@@ -362,8 +564,56 @@ class Updater(context: Context) {
         /** Where the fetched APK waits until the app is in front to install it. */
         private const val UPDATE_APK = "update.apk"
 
+        /** A download in progress, kept so a retry continues instead of restarting. */
+        private const val PART_APK = "update.apk.part"
+
+        /** Which release [PART_APK] is a part of, so another one does not resume it. */
+        private const val PART_SOURCE = "update.apk.part.source"
+
+        private fun File.readTextOrNull(): String? =
+            runCatching { takeIf { it.exists() }?.readText() }.getOrNull()
+
         /** Told apart from a network failure so the UI can offer the way out. */
         const val REASON_PERMISSION = "permission"
+
+        /** Anything that stopped the file arriving whole. */
+        const val REASON_NETWORK = "network"
+
+        /** The file is not this app: another package name, or not an APK. */
+        const val REASON_PACKAGE = "package"
+
+        /** The file is this app but not the release it was fetched for. */
+        const val REASON_VERSION = "version"
+
+        /** Signed with a key other than the one this copy was installed with. */
+        const val REASON_SIGNATURE = "signature"
+
+        /** The installer itself refused, or nothing on the phone could open it. */
+        const val REASON_INSTALL = "install"
+
+        /** The signing certificates of a package, installed or from an APK file. */
+        private fun certificates(info: android.content.pm.PackageInfo): Set<String> {
+            val signers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                info.signatures
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+            return signers.orEmpty().map { signature ->
+                digest.reset()
+                digest.digest(signature.toByteArray()).joinToString("") { "%02x".format(it) }
+            }.toSet()
+        }
+
+        /** Which certificates to read: the 28+ field, or the old `signatures` below it. */
+        private fun signingFlags(): Int =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                @Suppress("DEPRECATION")
+                PackageManager.GET_SIGNATURES
+            }
 
         /**
          * Compares two dotted versions numerically.

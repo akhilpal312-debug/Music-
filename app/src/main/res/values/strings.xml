@@ -287,6 +287,11 @@
     <string name="update_installing">Waiting for you to confirm</string>
     <string name="update_needs_permission">Allow installing — tap</string>
     <string name="update_failed">Not now — tap to retry</string>
+    <string name="update_failed_download">The download did not finish. Check the connection and try again — it continues from where it stopped.</string>
+    <string name="update_failed_signature">That file is signed with a different key, so Android will not install it over this app.</string>
+    <string name="update_failed_wrong_file">That download was not the release it should have been.</string>
+    <string name="update_failed_install">Android refused the install. Try again, or install the APK from the releases page.</string>
+    <string name="update_needs_permission_long">Allow Comfort to install apps, then press Update again.</string>
     <string name="quality">Audio quality</string>
     <string name="backend">Source</string>
     <string name="backend_spotify">Spotify</string>
