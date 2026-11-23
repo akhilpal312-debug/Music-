@@ -77,13 +77,15 @@ fun UpdateSheet(
     backdrop: Backdrop,
     visible: Boolean,
 ) {
-    // Upstream's GlassSheet. Not to be put away by a tap beside it or a drag
-    // while a download is running, since there would be nothing to come back
-    // to.
+    // Upstream's GlassSheet. Put away by a tap beside it or a drag even while a
+    // download is running: the fetch goes on in its service either way, and the
+    // sheet comes back at the next opening. Trapping someone behind a
+    // twenty-megabyte progress bar on a slow connection is not the app's
+    // decision to make.
     GlassSheet(
         visible = visible,
-        onDismiss = { if (!downloading) onDismiss() },
-        enableDrag = !downloading,
+        onDismiss = onDismiss,
+        enableDrag = true,
         scrollable = false,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
     ) {

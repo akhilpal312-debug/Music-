@@ -4437,31 +4437,29 @@ private fun Player.cycleRepeatMode() {
  * was actually playing.
  */
 /**
- * Brings a new release in on its own.
+ * Announces a new release the moment the app opens, and brings it in.
  *
- * This used to ask: a sheet over the page, once per release, with the notes
- * and two buttons. The asking was the problem. An app no store can reach has
- * to keep itself current, and the people who need that most are the ones least
- * willing to press a button every morning for it.
+ * The sheet is shown again at every opening while an update is waiting, rather
+ * than once per release: an app no store can reach has to keep itself current,
+ * and the release is only useful to someone who can see it is there.
  *
- * So there is nothing to press. At most once every six hours the release is
- * read; if it is newer the APK is fetched by
- * [dev.lelonio.square.update.UpdateService] and handed to Android's installer,
+ * Pressing nothing is enough. The APK is fetched by
+ * [dev.lelonio.square.update.UpdateService] as soon as the release is found and
+ * handed to Android's installer by [Updater.commit] once the app is in front,
  * which puts up the one dialog no app can skip: the confirmation. That tap is
  * the limit of what a sideloaded app may do — only a system app installs
  * silently — so this comes as close to "it just happens" as the platform
  * allows.
  *
- * One attempt per release, remembered in the preferences. A cancelled
- * confirmation is an answer, and asking again tomorrow morning is exactly what
- * made the sheet a nuisance.
- *
- * The sheet survives for the one thing the app cannot do by itself: without
- * permission to install packages there is nothing it can hand over, so it asks
- * for that once and no more.
+ * The download is started once per release, remembered in the preferences, so
+ * a cancelled confirmation does not mean fetching twenty megabytes again at
+ * every opening. The sheet is the one that stays, with the Update button
+ * already unnecessary in the usual case and the way back in when the fetch was
+ * given up on.
  *
  * Everything that can go wrong is silence. The check is not something the user
- * asked for, so a failure is not something to tell them about.
+ * asked for, so a failure is not something to tell them about; the sheet simply
+ * offers the release again.
  */
 @Composable
 private fun UpdatePrompt(
@@ -4474,6 +4472,12 @@ private fun UpdatePrompt(
     }
     val prefs = remember(context) { dev.lelonio.square.data.PreferencesStore(context) }
     val state by updater.state.collectAsStateWithLifecycle()
+
+    // The release being offered, held here as well as in the updater: by the
+    // time the sheet is on screen the state has moved on to the download, and a
+    // percentage does not say what is being downloaded.
+    var offered by remember { mutableStateOf<Updater.State.Available?>(null) }
+    var dismissed by remember { mutableStateOf(false) }
 
     // Each time the app comes to the front, not only when it is launched. A
     // music app is rarely launched: it stays in the background between
@@ -4492,12 +4496,17 @@ private fun UpdatePrompt(
 
             val found = updater.state.value as? Updater.State.Available
                 ?: return@repeatOnLifecycle
-            // Once per release. Without this a cancelled confirmation means a
-            // fresh download and a fresh dialog every six hours.
-            if (found.version == prefs.offeredUpdate()) return@repeatOnLifecycle
-            // Nothing can be installed without the permission; the sheet
-            // below asks for it, and comes back here once it is granted.
-            if (!updater.canInstall()) return@repeatOnLifecycle
+            // Put on screen as soon as it is found, and shown again at the next
+            // opening if it was put away uninstalled.
+            offered = found
+            dismissed = false
+            // Fetched while the sheet is still coming up, so the Update button
+            // is usually unnecessary by the time it can be pressed. Once per
+            // release, and only with permission: without it there is nothing to
+            // hand the installer, and the sheet asks for it instead.
+            if (!updater.canInstall() || found.version == prefs.offeredUpdate()) {
+                return@repeatOnLifecycle
+            }
             prefs.setOfferedUpdate(found.version)
             updater.install(found)
         }
@@ -4515,12 +4524,9 @@ private fun UpdatePrompt(
         }
     }
 
-    // What is left for the sheet: this app has not been allowed to install
-    // packages, so there is nothing it can hand to the installer.
-    var dismissed by remember { mutableStateOf(false) }
-    val available = (state as? Updater.State.Available)?.takeIf {
-        !updater.canInstall() && it.version != prefs.skippedUpdate()
-    } ?: return
+    // What the sheet is about, from the state while it still names the release
+    // and from the copy kept above once the download has taken it over.
+    val available = (state as? Updater.State.Available) ?: offered ?: return
 
     // Held across the trip to the system settings, so granting the permission
     // continues the install instead of dropping it.
@@ -4557,7 +4563,10 @@ private fun UpdatePrompt(
             }
         },
         onDismiss = {
-            prefs.setSkippedUpdate(available.version)
+            // For this opening only. The sheet is how an update is announced,
+            // so putting it away is not the same as refusing the release for
+            // ever: it is back at the next launch, with the download already
+            // done and only the confirmation left.
             dismissed = true
         },
         backdrop = backdrop,
@@ -4567,8 +4576,15 @@ private fun UpdatePrompt(
     )
 }
 
-/** At most one check every six hours, however often the app is opened. */
-private const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
+/**
+ * At most one check every ten minutes, however often the app is opened.
+ *
+ * The sheet is shown at every opening, so the check runs at every opening too;
+ * checking on every resume would spend GitHub's sixty unauthenticated requests
+ * an hour on someone who keeps the app in the foreground, and ten minutes is
+ * still "as soon as the app is opened" for anyone coming back to it.
+ */
+private const val UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000L
 
 private fun savedPlaybackSeed(context: android.content.Context): PlaybackState? {
     val saved = dev.lelonio.square.data.PlaybackStore(context).load() ?: return null
