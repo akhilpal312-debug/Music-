@@ -105,19 +105,28 @@ jobs:
         # arm64 first, and on its own: the updater in 2.4.2 and earlier takes
         # the first APK it finds, every phone that has one of those is 64-bit,
         # and gh uploads several files at once in no fixed order.
+        # The notes are written in docs/release-notes.md and shown both on the
+        # releases page and in the app's own update sheet, which reads whatever
+        # this release says about itself. A release with no body is a sheet with
+        # nothing under the version number.
         run: |
           set -euo pipefail
           name="square-${{ steps.version.outputs.name }}"
           tag="v${{ steps.version.outputs.name }}"
+          notes=docs/release-notes.md
+          if [ ! -s "$notes" ]; then
+            echo "::error::$notes is missing or empty"
+            exit 1
+          fi
           if ! git rev-parse --verify --quiet "refs/tags/$tag" > /dev/null; then
             git tag "$tag"
             git push origin "$tag"
           fi
           if gh release view "$tag" > /dev/null 2>&1; then
-            gh release edit "$tag" --draft=false
+            gh release edit "$tag" --draft=false --notes-file "$notes"
           else
             gh release create "$tag" --verify-tag \
-              --title "${{ steps.version.outputs.name }}" --notes ""
+              --title "${{ steps.version.outputs.name }}" --notes-file "$notes"
           fi
           gh release upload "$tag" "$name-arm64-v8a.apk" --clobber
           gh release upload "$tag" "$name-armeabi-v7a.apk" "$name-universal.apk" --clobber
