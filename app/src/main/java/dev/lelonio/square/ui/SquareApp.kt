@@ -4487,13 +4487,17 @@ private fun UpdatePrompt(
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
             val now = System.currentTimeMillis()
-            if (now - prefs.lastUpdateCheck() < UPDATE_CHECK_INTERVAL_MS) return@repeatOnLifecycle
-            // Recorded before the call rather than after it: a phone with no
-            // network would otherwise ask again at every launch, which is the
-            // one shape of this that would be a nuisance.
-            prefs.setLastUpdateCheck(now)
-            runCatching { updater.check() }
+            if (now - prefs.lastUpdateCheck() >= UPDATE_CHECK_INTERVAL_MS) {
+                // Recorded before the call rather than after it: a phone with no
+                // network would otherwise ask again at every launch, which is
+                // the one shape of this that would be a nuisance.
+                prefs.setLastUpdateCheck(now)
+                runCatching { updater.check() }
+            }
 
+            // Shown from what is already known as well as from a fresh check:
+            // the interval above limits the requests, not the announcement, so
+            // a release found minutes ago still comes up at this opening.
             val found = updater.state.value as? Updater.State.Available
                 ?: return@repeatOnLifecycle
             // Put on screen as soon as it is found, and shown again at the next
