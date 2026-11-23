@@ -111,6 +111,8 @@ import dev.lelonio.square.ui.glass.backdrop.backdrops.rememberLayerBackdrop
 import dev.lelonio.square.ui.glass.backdrop.backdrops.rememberCombinedBackdrop
 import dev.lelonio.square.ui.glass.backdrop.drawBackdrop
 import dev.lelonio.square.R
+import dev.lelonio.square.BuildConfig
+import dev.lelonio.square.data.KnownUpdate
 import dev.lelonio.square.data.CanvasClip
 import dev.lelonio.square.data.Catalog
 import dev.lelonio.square.data.CatalogPlaylist
@@ -4493,12 +4495,26 @@ private fun UpdatePrompt(
                 // the one shape of this that would be a nuisance.
                 prefs.setLastUpdateCheck(now)
                 runCatching { updater.check() }
+                // Written down as well as held in memory. The state is gone the
+                // moment the process is, and the interval outlives it, so
+                // without this the next launch had a release to offer and
+                // nothing to offer it from.
+                when (val checked = updater.state.value) {
+                    is Updater.State.Available -> prefs.setKnownUpdate(
+                        KnownUpdate(checked.version, checked.url, checked.bytes, checked.notes),
+                    )
+                    Updater.State.UpToDate -> prefs.clearKnownUpdate()
+                    else -> Unit
+                }
             }
 
             // Shown from what is already known as well as from a fresh check:
             // the interval above limits the requests, not the announcement, so
             // a release found minutes ago still comes up at this opening.
             val found = updater.state.value as? Updater.State.Available
+                ?: prefs.knownUpdate()
+                    ?.takeIf { Updater.isNewer(it.version, BuildConfig.VERSION_NAME) }
+                    ?.let { Updater.State.Available(it.version, it.url, it.bytes, it.notes) }
                 ?: return@repeatOnLifecycle
             // Put on screen as soon as it is found, and shown again at the next
             // opening if it was put away uninstalled.

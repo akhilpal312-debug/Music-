@@ -480,6 +480,45 @@ class PreferencesStore(context: Context) {
         prefs.edit().putString(KEY_OFFERED_UPDATE, value).apply()
     }
 
+    /**
+     * The release the last check found, as it was described then.
+     *
+     * The updater's state lives in memory only, while the check itself is
+     * limited to one every ten minutes. Opened again inside that window, a
+     * freshly started app had no state and nothing to announce, so the sheet
+     * only came up once the interval was over — which, for an app opened and
+     * closed all day, was most of the openings. Written down here, the release
+     * is still known at the next launch even though no request is made.
+     */
+    fun knownUpdate(): KnownUpdate? {
+        val version = prefs.getString(KEY_KNOWN_UPDATE_VERSION, null) ?: return null
+        val url = prefs.getString(KEY_KNOWN_UPDATE_URL, null) ?: return null
+        return KnownUpdate(
+            version = version,
+            url = url,
+            bytes = prefs.getLong(KEY_KNOWN_UPDATE_BYTES, 0L),
+            notes = prefs.getString(KEY_KNOWN_UPDATE_NOTES, null).orEmpty(),
+        )
+    }
+
+    fun setKnownUpdate(update: KnownUpdate) {
+        prefs.edit()
+            .putString(KEY_KNOWN_UPDATE_VERSION, update.version)
+            .putString(KEY_KNOWN_UPDATE_URL, update.url)
+            .putLong(KEY_KNOWN_UPDATE_BYTES, update.bytes)
+            .putString(KEY_KNOWN_UPDATE_NOTES, update.notes)
+            .apply()
+    }
+
+    fun clearKnownUpdate() {
+        prefs.edit()
+            .remove(KEY_KNOWN_UPDATE_VERSION)
+            .remove(KEY_KNOWN_UPDATE_URL)
+            .remove(KEY_KNOWN_UPDATE_BYTES)
+            .remove(KEY_KNOWN_UPDATE_NOTES)
+            .apply()
+    }
+
     /** The account's country code, saved from the Spotify profile. */
     val userCountry: String?
         get() = prefs.getString(KEY_USER_COUNTRY, null)
@@ -524,6 +563,10 @@ class PreferencesStore(context: Context) {
         const val KEY_LAST_UPDATE_CHECK = "last_update_check"
         const val KEY_SKIPPED_UPDATE = "skipped_update"
         const val KEY_OFFERED_UPDATE = "offered_update"
+        const val KEY_KNOWN_UPDATE_VERSION = "known_update_version"
+        const val KEY_KNOWN_UPDATE_URL = "known_update_url"
+        const val KEY_KNOWN_UPDATE_BYTES = "known_update_bytes"
+        const val KEY_KNOWN_UPDATE_NOTES = "known_update_notes"
         const val KEY_USER_COUNTRY = "user_country"
     }
 }
@@ -536,3 +579,16 @@ class PreferencesStore(context: Context) {
  * the song somebody just chose is not kept waiting for it.
  */
 const val SKIP_FADE_MS = 1_000
+
+/**
+ * A release the app has been told about, kept between launches.
+ *
+ * Only what is needed to offer it again: which version, where the APK is, how
+ * big it is, and what the release says about itself.
+ */
+data class KnownUpdate(
+    val version: String,
+    val url: String,
+    val bytes: Long,
+    val notes: String,
+)
