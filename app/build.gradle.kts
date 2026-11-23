@@ -50,8 +50,8 @@ android {
         // cpal's Android host is AAudio, which the ndk crate gates at API 26.
         minSdk = 26
         targetSdk = 35
-        versionCode = 77
-        versionName = "0.0.8"
+        versionCode = 78
+        versionName = "0.0.9"
         buildConfigField("boolean", "VERBOSE_LOG", "false")
         buildConfigField("boolean", "GLASS_FLAGS", "false")
 
