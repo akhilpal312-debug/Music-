@@ -198,3 +198,36 @@ Screenshots were requested as a deliverable. They are **not** in this delivery a
 **Google Drive:** the build host can read the connected `Comfort` folder but cannot write new bytes into it. The Drive integration only accepts uploads of files already staged in the chat session's storage, and files produced inside this VM are not staged there — every upload attempt was rejected with `HTTP 403: The file key does not belong to this project or session`. Nothing was uploaded and nothing in the Drive folder was modified or overwritten.
 
 To place these builds in Drive, either download them from the workspace paths above and drop them into `Comfort/Final APK`, `Comfort/Final AAB` and `Comfort/QA Reports`, or attach them to a chat message so they can be staged and then written to Drive from here.
+
+## 9. Comfort 2.10.4 → home wordmark set in the display face (build 0.0.2)
+
+### What changed
+
+The home header and the signed-out, onboarding, library and YouTube empty states
+drew the app's name as hand-built polylines. It is now typeset: `ComfortWordmark`
+in `ui/components/Wordmark.kt` renders `Comfort` in Instrument Serif, the display
+face the app already ships, sized from the same `height` the call sites pass
+(capitals are 0.72 em, so 28dp of capitals is 38.9sp of type). No layout, spacing,
+navigation or playback code was touched; the drawn glyph table was deleted.
+
+versionCode 71 / versionName 0.0.2 — one step above the published 0.0.1 (code 70),
+same package `dev.lelonio.square`, so it installs as an update with app data kept.
+
+### Verified here
+
+- `:app:testDebugUnitTest :app:assembleRelease :app:bundleRelease -PdisableAbiSplits=true`
+  — BUILD SUCCESSFUL in 4m 56s, no compiler errors.
+- `aapt2 dump badging` on the local build: package `dev.lelonio.square`,
+  versionCode 71, versionName 0.0.2, `application-label:'Comfort'`, targetSdk 35.
+- The published 0.0.1 APK is signed with the project release certificate
+  (`da2e2d92…1eb2b`), which this environment does not hold: a locally built APK
+  would be debug-signed (`6f27533a…de26e`) and would be rejected as an update over
+  it. The installable 0.0.2 therefore has to come from the repository's release
+  workflow, which signs with the project key.
+
+### Not verified
+
+No device or emulator here: the new wordmark has not been seen on a screen. A
+serif's capitals sit at 0.72 em, so the text block is taller per `height` than the
+drawn letters were and the home header may sit a few dp differently — that is the
+thing to eyeball after installing.

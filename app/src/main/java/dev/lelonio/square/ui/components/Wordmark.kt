@@ -5,6 +5,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import dev.lelonio.square.ui.theme.InstrumentSerif
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -25,53 +32,43 @@ import dev.lelonio.square.R
 import dev.lelonio.square.ui.theme.Ink
 
 /**
- * The name, drawn rather than typeset.
+ * The name, set in the app's display face.
  *
- * The icon is a square wave: one stroke width, right angles only, no curve
- * anywhere. No font shipped with Android says that — a bold sans still has
- * round bowls on S and Q and a diagonal on R — and pulling in a display face
- * for six letters costs more than the six letters do.
+ * Was drawn: polylines on a grid, in the same right angles as the icon. A word
+ * spelled by hand is a word that has to be redrawn whenever the name is said
+ * differently, and at any size the counters are a compromise.
  *
- * So the letterforms are the same primitive as the icon: polylines on a 6×10
- * grid, orthogonal segments, square caps and joins. The Q's tail drops below
- * the baseline, which is the one thing that keeps it from reading as an O.
+ * So it is type now, in Instrument Serif — the face the app already ships for
+ * the one place it wants a headline rather than an interface. Comfort is a
+ * listening app; a name set in text type reads as a label, where this reads as
+ * a masthead.
  *
- * Sized by its height: the width follows from the grid, so callers give this a
- * height and let it measure itself.
+ * Sized by the height its capitals should read at: the face's capitals are
+ * 0.72 em, so 28dp of them is 38.9sp of type, and callers keep passing the
+ * height they always passed.
  */
 @Composable
-fun SquareWordmark(
+fun ComfortWordmark(
     height: Dp,
     modifier: Modifier = Modifier,
     color: Color = Ink,
 ) {
-    Canvas(
-        modifier
-            .height(height)
-            // 7 glyphs on a 9.5-unit advance, over a 12-unit box.
-            .width(height * (7f * 9.5f / 12f)),
-    ) {
-        val unit = size.height / 12f
-        // The stroke stays near one unit and the advance well over the glyph
-        // width, or the counters close up and the word turns into a dark block.
-        val stroke = unit * 1.15f
-        val path = Path()
-        GLYPHS.forEachIndexed { index, lines ->
-            val originX = index * 9.5f * unit + stroke / 2f
-            lines.forEach { points ->
-                points.forEachIndexed { at, (gx, gy) ->
-                    val x = originX + gx * unit
-                    val y = gy * unit + stroke / 2f
-                    if (at == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-            }
-        }
-        drawPath(
-            path,
-            color = color,
-            style = Stroke(width = stroke, cap = StrokeCap.Square, join = StrokeJoin.Miter),
-        )
-    }
+    val size = height.value / 0.72f
+    Text(
+        text = "Comfort",
+        modifier = modifier,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        style = TextStyle(
+            fontFamily = InstrumentSerif,
+            fontWeight = FontWeight.Normal,
+            fontSize = size.sp,
+            lineHeight = size.sp,
+            letterSpacing = (-0.01).em,
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+        ),
+    )
 }
 
 /**
@@ -100,7 +97,7 @@ fun AppLockup(
             AppPlate(iconSize, plate)
         }
         Spacer(Modifier.width(iconSize * 0.32f))
-        SquareWordmark(nameHeight)
+        ComfortWordmark(nameHeight)
     }
 }
 
@@ -180,33 +177,3 @@ fun AppGlyph(size: Dp, modifier: Modifier = Modifier, tint: Color = Ink) {
         modifier = modifier.size(size),
     )
 }
-
-/** C O M F O R T, as polylines on the grid described in [SquareWordmark]. */
-private val GLYPHS: List<List<List<Pair<Float, Float>>>> = listOf(
-    // C
-    listOf(listOf(6f to 0f, 0f to 0f, 0f to 10f, 6f to 10f)),
-    // O: a closed box, as the wordmark has always drawn it.
-    listOf(listOf(0f to 0f, 6f to 0f, 6f to 10f, 0f to 10f, 0f to 0f)),
-    // M
-    listOf(
-        listOf(0f to 10f, 0f to 0f, 6f to 0f, 6f to 10f),
-        listOf(3f to 0f, 3f to 6f),
-    ),
-    // F
-    listOf(
-        listOf(6f to 0f, 0f to 0f, 0f to 10f),
-        listOf(0f to 5f, 4f to 5f),
-    ),
-    // O
-    listOf(listOf(0f to 0f, 6f to 0f, 6f to 10f, 0f to 10f, 0f to 0f)),
-    // R: the leg comes straight down instead of splaying.
-    listOf(
-        listOf(0f to 10f, 0f to 0f, 6f to 0f, 6f to 5f, 0f to 5f),
-        listOf(3f to 5f, 3f to 10f),
-    ),
-    // T
-    listOf(
-        listOf(0f to 0f, 6f to 0f),
-        listOf(3f to 0f, 3f to 10f),
-    ),
-)
