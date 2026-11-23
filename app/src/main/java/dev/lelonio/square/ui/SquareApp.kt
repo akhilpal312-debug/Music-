@@ -136,6 +136,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntOffset
 import dev.lelonio.square.ui.components.TrackSheet
 import dev.lelonio.square.ui.components.TrackSheetAction
+import dev.lelonio.square.ui.components.StarSheet
 import dev.lelonio.square.ui.components.UpdateSheet
 import dev.lelonio.square.update.Updater
 import dev.lelonio.square.ui.library.openLink
@@ -1647,8 +1648,10 @@ fun SquareApp(
                 // something is reading it, and a panel over an unrecorded
                 // backdrop has nothing to refract — it came out flat.
                 var updateOpen by remember { mutableStateOf(false) }
+                // The star ask is glass too, and is drawn over the same layer.
+                var starOpen by remember { mutableStateOf(false) }
                 val sheetsOpen = trackMenu != null || addToPlaylist.open || playlistMenu != null ||
-                    sharedTrack != null || friendsOpen || updateOpen || sheetHost.open
+                    sharedTrack != null || friendsOpen || updateOpen || starOpen || sheetHost.open
                 // Kept on a little past the close, or the layer would stop
                 // being recorded while the sheet is still fading out over it
                 // and the panel would go black on the way down.
@@ -4059,6 +4062,15 @@ fun SquareApp(
                 // this is the layer the other sheets use.
                 UpdatePrompt(overlayBackdrop, onOpenChange = { updateOpen = it })
 
+                // After the update sheet, never at the same time as it: a phone
+                // with a release to install is already being asked something,
+                // and two asks stacked read as neither.
+                StarPrompt(
+                    backdrop = overlayBackdrop,
+                    suppressed = updateOpen,
+                    onOpenChange = { starOpen = it },
+                )
+
                 AddToPlaylistSheet(
                     state = addToPlaylist,
                     backdrop = overlayBackdrop,
@@ -4619,6 +4631,83 @@ private fun UpdatePrompt(
         backdrop = backdrop,
         // Gone once the system installer has it: what happens next is Android's
         // dialog, and two things asking about the same install is one too many.
+        visible = showing,
+    )
+}
+
+/**
+ * Asks, once and lightly, for a star on the repository the app comes from.
+ *
+ * An app outside a store has no listing to rate and no ranking to climb: the
+ * repository is the shopfront, and a star is what puts it in front of the next
+ * person looking for it. So this is the whole of what the app asks for.
+ *
+ * What it does is entirely up to the repository's `docs/star.json` — on or off,
+ * after how many openings, how long "later" lasts, and the words and page it
+ * uses — read through [dev.lelonio.square.data.StarPromptStore] and changing
+ * every installed copy without a release. The decisions about *when* are here:
+ * not in the first openings, not over the update sheet, and not again once the
+ * question has been answered.
+ */
+@Composable
+private fun StarPrompt(
+    backdrop: dev.lelonio.square.ui.glass.backdrop.Backdrop,
+    /** The update sheet has the screen. */
+    suppressed: Boolean,
+    onOpenChange: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val store = remember(context) { dev.lelonio.square.data.StarPromptStore(context) }
+    // Read at the moment of asking rather than captured: the update sheet can
+    // arrive while the config is still being fetched.
+    val suppressedNow by rememberUpdatedState(suppressed)
+
+    var config by remember { mutableStateOf<dev.lelonio.square.data.StarPromptStore.Config?>(null) }
+    var asking by remember { mutableStateOf(false) }
+    var answered by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        store.noteLaunch()
+        val loaded = runCatching { store.config(System.currentTimeMillis()) }
+            .getOrNull() ?: dev.lelonio.square.data.StarPromptStore.Config()
+        config = loaded
+        // A beat after the app is usable: the update sheet is checked and put
+        // up on this same opening, and it goes first.
+        kotlinx.coroutines.delay(1500)
+        if (suppressedNow) return@LaunchedEffect
+        asking = store.shouldAsk(System.currentTimeMillis(), loaded)
+    }
+
+    val showing = asking && !answered && !suppressed
+    // What the layer below is recorded for; see [sheetsOpen].
+    LaunchedEffect(showing) { onOpenChange(showing) }
+    DisposableEffect(Unit) { onDispose { onOpenChange(false) } }
+
+    StarSheet(
+        title = config?.title.orEmpty(),
+        body = config?.body.orEmpty(),
+        onStar = {
+            // Opened in the browser, where the account is: the star belongs to
+            // whoever is signed in there, and this app has no token for it.
+            // Taken as an answer either way — asking again after someone has
+            // been sent to the page is how a request turns into a nag.
+            answered = true
+            store.starred()
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(
+                            config?.url ?: dev.lelonio.square.data.StarPromptStore.REPO_URL,
+                        ),
+                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        },
+        onLater = {
+            answered = true
+            store.later(System.currentTimeMillis(), config?.intervalDays ?: 7)
+        },
         visible = showing,
     )
 }

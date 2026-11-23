@@ -292,6 +292,10 @@
     <string name="update_failed_wrong_file">That download was not the release it should have been.</string>
     <string name="update_failed_install">Android refused the install. Try again, or install the APK from the releases page.</string>
     <string name="update_needs_permission_long">Allow Comfort to install apps, then press Update again.</string>
+    <string name="star_title">Star Comfort on GitHub</string>
+    <string name="star_body">Comfort is free, has no ads, and lives in one repository instead of a store. A star there is what helps the next person find it — it takes a second, and it is the only thing the app asks for.</string>
+    <string name="star_action">Star on GitHub</string>
+    <string name="star_later">Later</string>
     <string name="quality">Audio quality</string>
     <string name="backend">Source</string>
     <string name="backend_spotify">Spotify</string>

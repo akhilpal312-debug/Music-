@@ -1,3 +1,34 @@
+## What's new in 0.0.11
+
+- **The app asks for a star, once.** Comfort lives in one GitHub repository
+  instead of a store, so there is no listing to rate and no ranking to climb —
+  a star on the repository is what puts it in front of the next person looking
+  for it. After a few openings, a sheet asks for one. Press **Star on GitHub**
+  and the repository opens in the browser; press **Later** and the question goes
+  away for a week.
+- **Asked once, not repeatedly.** Once you have been taken to the repository the
+  sheet stops for good, and a dismissed one stays quiet for the whole interval.
+  It never appears over the update sheet, and never in the first opening, which
+  belongs to setting the app up.
+- **Changeable without an update.** How the ask behaves — on or off, after how
+  many openings, how long "later" lasts, and its wording and page — is read
+  from `docs/star.json` in this repository. Editing that file changes every
+  installed copy within a few hours; nothing has to be built or installed for
+  it.
+- **Everything 0.0.10 fixed, unchanged.** The updater, the download that
+  resumes, the verification and the named failure reasons all work exactly as
+  before.
+
+## Update information
+
+- Version: 0.0.11 (versionCode 80)
+- Signed with the project's release key, certificate SHA-256
+  `9b3e6267f6617c4a623bd281d3e4093629fbb58c377828497a67a5f18ac920fb` — the same
+  key as every release since 0.0.4, so it installs over any of them without an
+  uninstall
+- The notes you are reading are the ones the update sheet shows, under the
+  version number
+
 ## What's new in 0.0.10
 
 - **Same app as 0.0.8 and 0.0.9, with the updater's last rough edge filed off.**
